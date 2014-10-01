@@ -537,6 +537,10 @@ class ModelFormMixin(object):
         self.update_indexes_in_sequences()
         return HttpResponseRedirect(self._session_user.get_success_url())
 
+    def form_invalid(self, form):
+        form.record_invalid_answers(user=self._user)
+        return super(ModelFormMixin, self).form_invalid(form)
+
 
 class PlayerSequenceMixin(SequenceMixin):
     """for players"""

@@ -1,4 +1,5 @@
 from otree.db import models
+from otree.invalidanswers.models import InvalidAnswer
 
 class WaitPageVisit(models.Model):
 

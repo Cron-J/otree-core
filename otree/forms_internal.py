@@ -11,6 +11,7 @@ import otree.sessionlib.models
 import otree.constants
 from otree.db import models
 from otree.fields import RandomCharField
+from otree.invalidanswers.forms import InvalidAnswerModelFormMixin
 
 
 __all__ = ('formfield_callback', 'modelform_factory', 'BaseModelForm',)
@@ -158,7 +159,7 @@ class BaseModelFormMetaclass(FloppyformsModelFormMetaclass):
             mcs, name, bases, attrs)
 
 
-class BaseModelForm(forms.ModelForm):
+class BaseModelForm(InvalidAnswerModelFormMixin, forms.ModelForm):
     __metaclass__ = BaseModelFormMetaclass
 
     def __init__(self, *args, **kwargs):
