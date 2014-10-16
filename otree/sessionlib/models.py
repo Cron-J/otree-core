@@ -15,6 +15,21 @@ from easymoney import Money
 from django_extensions.db.fields.json import JSONField
 
 
+class GlobalSettings(models.Model):
+    """object that can hold site-wide settings. There should only be one GlobalSettings object.
+    """
+    open_session = models.ForeignKey('Session', null=True)
+
+    class Meta:
+        verbose_name = 'Set open session'
+        verbose_name_plural = verbose_name
+
+
+class StubModel(models.Model):
+    """To be used as the model for an empty form, so that form_class can be omitted.
+    Consider using SingletonModel for this. Right now, I'm not sure we need it.
+    """
+
 
 # R: You really need this only if you are using save_the_change,
 #    which is not used for Session and SessionUser,
@@ -64,6 +79,11 @@ class Session(ModelWithVars):
         related_name='session',
     )
 
+    time_scheduled = models.DateTimeField(
+        null=True,
+        doc="""The time at which the experimenter started the session"""
+    )
+
     time_started = models.DateTimeField(
         null=True,
         doc="""The time at which the experimenter started the session"""
@@ -98,7 +118,7 @@ class Session(ModelWithVars):
 
     comment = models.TextField()
 
-    _players_assigned_to_matches = models.BooleanField(default=False)
+    _players_assigned_to_groups = models.BooleanField(default=False)
 
     def base_pay_display(self):
         return currency(self.base_pay)
@@ -116,19 +136,20 @@ class Session(ModelWithVars):
     # indicates whether a session has been fully created (not only has the model itself been created, but also the other models in the hierarchy)
     ready = models.BooleanField(default=False)
 
-    def name(self):
-        return id_label_name(self.pk, self.label)
+    def is_open(self):
+        return GlobalSettings.objects.get().open_session == self
+
 
     def subsession_names(self):
         names = []
-        for subsession in self.subsessions():
+        for subsession in self.get_subsessions():
             names.append('{} {}'.format(otree.common.app_name_format(subsession._meta.app_label), subsession.name()))
         if names:
             return ', '.join(names)
         else:
             return '[empty sequence]'
 
-    def subsessions(self):
+    def get_subsessions(self):
         lst = []
         subsession = self.first_subsession
         while True:
@@ -140,7 +161,7 @@ class Session(ModelWithVars):
 
 
     def __unicode__(self):
-        return self.name()
+        return self.code
 
     def chain_subsessions(self, subsessions):
         self.first_subsession = subsessions[0]
@@ -155,12 +176,12 @@ class Session(ModelWithVars):
     def chain_players(self):
         """Should be called after add_subsessions"""
 
-        participants = self.participants()
+        participants = self.get_participants()
         num_participants = len(participants)
 
-        subsessions = self.subsessions()
+        subsessions = self.get_subsessions()
 
-        first_subsession_players = self.first_subsession.players
+        first_subsession_players = self.first_subsession.get_players()
 
         for i in range(num_participants):
             player = first_subsession_players[i]
@@ -169,8 +190,8 @@ class Session(ModelWithVars):
             participant.save()
 
         for subsession_index in range(len(subsessions) - 1):
-            players_left = subsessions[subsession_index].players
-            players_right = subsessions[subsession_index + 1].players
+            players_left = subsessions[subsession_index].get_players()
+            players_right = subsessions[subsession_index + 1].get_players()
             for player_index in range(num_participants):
                 player_left = players_left[player_index]
                 player_right = players_right[player_index]
@@ -182,30 +203,27 @@ class Session(ModelWithVars):
     def add_subsession(self, subsession):
         subsession.session = self
         subsession.save()
-        for treatment in subsession.treatments:
-            treatment.session = self
-            treatment.save()
 
     def delete(self, using=None):
-        for subsession in self.subsessions():
+        for subsession in self.get_subsessions():
             subsession.delete()
         super(Session, self).delete(using)
 
-    def participants(self):
+    def get_participants(self):
         return self.participant_set.all()
 
     def payments_ready(self):
-        for participants in self.participants():
+        for participants in self.get_participants():
             if not participants.payoff_from_subsessions_is_complete():
                 return False
         return True
     payments_ready.boolean = True
 
-    def _assign_players_to_matches(self):
-        for subsession in self.subsessions():
-            subsession._create_empty_matches()
-            subsession._assign_players_to_matches()
-        self._players_assigned_to_matches = True
+    def _assign_players_to_groups(self):
+        for subsession in self.get_subsessions():
+            subsession._create_empty_groups()
+            subsession._assign_players_to_groups()
+        self._players_assigned_to_groups = True
         self.save()
 
     class Meta:
@@ -240,7 +258,6 @@ class SessionUser(ModelWithVars):
     ip_address = models.IPAddressField(null = True)
 
     # stores when the page was first visited
-    _time_spent_on_each_page = models.PickleField(default=lambda:[])
     _last_page_timestamp = models.DateTimeField(null=True)
 
     is_on_wait_page = models.BooleanField(default=False)
@@ -253,7 +270,7 @@ class SessionUser(ModelWithVars):
     def subsessions_completed(self):
         if not self.visited:
             return None
-        return '{}/{} subsessions'.format(self._index_in_subsessions, len(self.session.subsessions()))
+        return '{}/{} subsessions'.format(self._index_in_subsessions, len(self.session.get_subsessions()))
 
     def _pages_completed_in_current_subsession(self):
         return self._users()[self._index_in_subsessions]._pages_completed()
@@ -261,7 +278,7 @@ class SessionUser(ModelWithVars):
     def current_subsession(self):
         if not self.visited:
             return None
-        return otree.common.app_name_format(self.session.subsessions()[self._index_in_subsessions]._meta.app_label)
+        return otree.common.app_name_format(self.session.get_subsessions()[self._index_in_subsessions]._meta.app_label)
 
     def _users(self):
         """Used to calculate payoffs"""
@@ -279,11 +296,6 @@ class SessionUser(ModelWithVars):
             return 'Waiting'
         return ''
 
-    def get_success_url(self):
-        from otree.views.concrete import RedirectToPageUserShouldBeOn
-        return RedirectToPageUserShouldBeOn.url(self)
-
-
     class Meta:
         abstract = True
 
@@ -294,7 +306,7 @@ class SessionExperimenter(SessionUser):
         )
 
     def chain_experimenters(self):
-        subsessions = self.session.subsessions()
+        subsessions = self.session.get_subsessions()
 
         self.me_in_first_subsession = subsessions[0]._experimenter
         self.save()
@@ -333,11 +345,11 @@ class Participant(SessionUser):
             self.code
         )
 
-    def players(self):
+    def get_players(self):
         return self._users()
 
     def payoff_from_subsessions(self):
-        return sum(player.payoff or Money(0) for player in self.players())
+        return sum(player.payoff or Money(0) for player in self.get_players())
 
     def total_pay(self):
         try:
@@ -355,7 +367,7 @@ class Participant(SessionUser):
     payoff_from_subsessions_display.short_description = 'payoff from subsessions'
 
     def payoff_from_subsessions_is_complete(self):
-        return all(p.payoff is not None for p in self.players)
+        return all(p.payoff is not None for p in self.get_players())
 
     def total_pay_display(self):
         try:
@@ -367,9 +379,9 @@ class Participant(SessionUser):
             return total_pay
         return u'{} (incomplete)'.format(total_pay)
 
-    def _assign_to_matches(self):
-        for p in self.players:
-            p._assign_to_match()
+    def _assign_to_groups(self):
+        for p in self.get_players():
+            p._assign_to_group()
 
     mturk_assignment_id = models.CharField(max_length = 50, null = True)
     mturk_worker_id = models.CharField(max_length = 50, null = True)
@@ -391,12 +403,3 @@ class Participant(SessionUser):
     class Meta:
         ordering = ['pk']
 
-class GlobalData(models.Model):
-    """object that can hold site-wide properties. There should only be one GlobalData object.
-    """
-    open_session = models.ForeignKey(Session, null=True)
-
-class StubModel(models.Model):
-    """To be used as the model for an empty form, so that form_class can be omitted.
-    Consider using SingletonModel for this. Right now, I'm not sure we need it.
-    """

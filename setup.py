@@ -1,14 +1,13 @@
 import os
 import sys
 from setuptools import setup, find_packages
-import shutil
 
 README = open(os.path.join(os.path.dirname(__file__), 'README.md')).read()
 
 # allow setup.py to be run from any path
 os.chdir(os.path.normpath(os.path.join(os.path.abspath(__file__), os.pardir)))
 
-version='0.2.182'
+version='0.2.192'
 
 if sys.argv[-1] == 'publish':
 
@@ -26,17 +25,6 @@ if sys.argv[-1] == 'publish':
 
     sys.exit()
 
-otree_script = 'bin/otree'
-with open(otree_script, 'r') as f:
-    t = f.read()
-with open(otree_script, 'w') as f:
-    f.write(t.replace('\r', ''))
-
-
-# FIXME: what if the user cloned from github and ran 'python setup.py install'?
-if 'sdist' in sys.argv:
-    shutil.make_archive('otree/app_template', 'zip', 'otree/app_template')
-    shutil.make_archive('otree/project_template', 'zip', 'otree/project_template')
 
 setup(
     name='otree-core',
@@ -71,6 +59,7 @@ setup(
         'coverage==3.7.1',
         'django-easymoney==0.4',
         'handy==0.3',
+        'Pillow',
 
 
     ],
@@ -87,8 +76,6 @@ setup(
         'Topic :: Internet :: WWW/HTTP',
         'Topic :: Internet :: WWW/HTTP :: Dynamic Content',
     ],
-    scripts = ['bin/otree'],
-
 )
 
 

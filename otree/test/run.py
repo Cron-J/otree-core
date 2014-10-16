@@ -6,11 +6,11 @@ from Queue import Queue
 import time
 from otree.sessionlib.models import Session
 import coverage
-from otree.session import create_session, SessionTypeDirectory, get_session_types
+from otree.session import create_session, SessionTypeDirectory
 import itertools
 from otree.constants import special_category_bots
 
-modules_to_include_in_coverage = ['models', 'tests', 'views', 'forms']
+modules_to_include_in_coverage = ['models', 'tests', 'views']
 
 
 def run_subsession(subsession):
@@ -64,27 +64,27 @@ def run_subsession(subsession):
 def run_session(session_type_name):
 
     session = create_session(type_name=session_type_name, special_category=special_category_bots)
-    session.label = '{} [test]'.format(session.label)
+    session.label = '{} [bots]'.format(session.label)
     session.save()
 
     session_experimenter_bot = Client()
     session_experimenter_bot.get(session.session_experimenter._start_url(), follow=True)
     session_experimenter_bot.post(session.session_experimenter._start_url(), follow=True)
 
-    # since players are assigned to treatments and matches in a background thread,
+    # since players are assigned to groups in a background thread,
     # we need to wait for that to complete.
     while True:
         session = Session.objects.get(id=session.id)
-        if session._players_assigned_to_matches:
+        if session._players_assigned_to_groups:
             break
         time.sleep(1)
 
-    for participants in session.participants():
+    for participants in session.get_participants():
         bot = Client()
         bot.get(participants._start_url(), follow=True)
 
     successes = []
-    for subsession in session.subsessions():
+    for subsession in session.get_subsessions():
         success = run_subsession(subsession)
         successes.append(success)
     if all(successes):
@@ -128,7 +128,7 @@ def run_all_sessions_without_coverage():
     '''2014-8-17: having trouble getting coverage.py to report correct numbers
      when i test multiple sessions with coverage. so removing coverage from test_all'''
     successes = []
-    for session_type in get_session_types():
+    for session_type in SessionTypeDirectory().select():
         session_type_name = session_type.name
         success = run_session(session_type_name)
         successes.append((session_type_name, success))

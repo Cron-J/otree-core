@@ -6,24 +6,7 @@
 
 {% block content %}
 
-    {% if doc %}
-        <h3>Session description</h3>
-        <p>
-        {{ doc }}
-        </p>
-    {% endif %}
-
-    <h3>Description</h3>
-    <table class="table">
-
-    {% for app in subsession_apps %}
-        <tr>
-            <th>{{ app.name }}</th>
-            <td>{{ app.doc|safe }}</td>
-        </tr>
-
-    {% endfor %}
-    </table>
+    {% include 'otree/SessionInfo.html' %}
 
     <h3>
         Start links
@@ -42,7 +25,7 @@
         <br/>
         <p>
             These are single-use links. To get new start links, refresh this page. This will let you simulate a new set of participants,
-            who will be reassigned to treatment groups and match groups.
+            who will be reassigned to match groups.
         </p>
 
     {% else %}

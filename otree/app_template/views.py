@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 from __future__ import division
-import otree.views
-import {{ app_name }}.models as models
-from {{ app_name }}._builtin import Page, WaitPage
+from . import models
+from ._builtin import Page, WaitPage
 from otree.common import Money, money_range
+from .models import Constants
 
 def variables_for_all_templates(self):
     return {
@@ -11,7 +11,7 @@ def variables_for_all_templates(self):
         #'my_field': self.player.my_field,
     }
 
-class Introduction(Page):
+class MyPage(Page):
 
     form_model = models.Player
     form_fields = ['my_field']
@@ -26,10 +26,12 @@ class Introduction(Page):
             'my_variable_here': 1,
         }
 
-class ResultsWaitPage(MatchWaitPage):
+class ResultsWaitPage(WaitPage):
+
+    scope = models.Group
 
     def after_all_players_arrive(self):
-        self.match.set_payoffs()
+        self.group.set_payoffs()
 
 class Results(Page):
 
@@ -37,7 +39,7 @@ class Results(Page):
 
 def pages():
     return [
-        Introduction,
+        MyPage,
         ResultsWaitPage,
         Results
     ]

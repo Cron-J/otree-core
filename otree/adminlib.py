@@ -3,8 +3,7 @@ import time
 
 from django.contrib import admin
 from django.conf.urls import patterns
-from django.shortcuts import render_to_response
-from django.template.loader import render_to_string
+from django.template.response import TemplateResponse
 from django.core.urlresolvers import reverse
 import django.db.models.options
 import django.db.models.fields.related
@@ -15,7 +14,8 @@ from otree.views.demo import render_to_start_links_page
 
 import otree.constants
 import otree.sessionlib.models
-from otree.common import currency
+from otree.sessionlib.models import Participant, Session
+from otree.common import currency, add_params_to_url
 
 def new_tab_link(url, label):
     return '<a href="{}" target="_blank">{}</a>'.format(url, label)
@@ -29,8 +29,7 @@ def get_callables(Model, fields_specific_to_this_subclass=None, for_export=False
 
     export_and_changelist = {
         'Player': [],
-        'Match': [],
-        'Treatment': [],
+        'Group': [],
         'Subsession': [],
         'Session': [],
         'Participant': [],
@@ -41,19 +40,18 @@ def get_callables(Model, fields_specific_to_this_subclass=None, for_export=False
            ['name',
             'link',
             '_pages_completed'],
-        'Match':
-            [],
-        'Treatment':
+        'Group':
             [],
         'Subsession':
             [],
         'Session': [
-             'subsession_names',
              'start_links_link',
+             'participants_table_link',
              'raw_participant_urls_link',
              'payments_ready',
              'payments_link',
              'base_pay_display',
+             'is_open',
         ],
         'Participant': [
                 'subsessions_completed',
@@ -66,8 +64,7 @@ def get_callables(Model, fields_specific_to_this_subclass=None, for_export=False
 
     export_but_not_changelist = {
         'Player': [],
-        'Match': [],
-        'Treatment': [],
+        'Group': [],
         'Subsession': [],
         'Session': [],
         'Participant': [],
@@ -81,7 +78,23 @@ def get_callables(Model, fields_specific_to_this_subclass=None, for_export=False
     return remove_duplicates(callables + fields_specific_to_this_subclass)
 
 def get_readonly_fields(Model, fields_specific_to_this_subclass=None):
-    return get_callables(Model, fields_specific_to_this_subclass)
+    callables = get_callables(Model, fields_specific_to_this_subclass)
+
+    for_change_page_and_list = {
+        'Player': [],
+        'Group': [],
+        'Subsession': [],
+        'Session': [
+            'code',
+            'type_name',
+            'time_started',
+            '_players_assigned_to_groups',
+            'special_category',
+        ],
+        'Participant': [],
+    }[Model.__name__]
+
+    return remove_duplicates(callables + for_change_page_and_list)
 
 def get_all_fields_for_table(Model, callables, first_fields=None, for_export=False):
 
@@ -92,22 +105,18 @@ def get_all_fields_for_table(Model, callables, first_fields=None, for_export=Fal
                 'name',
                 'session',
                 'subsession',
-                'treatment',
-                'match',
+                'group',
+                'id_in_group',
+                'role',
                 'visited',
                 '_pages_completed'
             ],
-        'Match':
+        'Group':
             [
                 'id',
                 'session',
                 'subsession',
-                'treatment'
             ],
-        'Treatment':
-            ['name',
-            'session',
-            'subsession'],
         'Subsession':
             ['name',
              'session'],
@@ -129,7 +138,8 @@ def get_all_fields_for_table(Model, callables, first_fields=None, for_export=Fal
         'Session':
             [
                 'code',
-                'name',
+                'type_name',
+                'label',
                 'hidden',
                 'type',
             ],
@@ -137,43 +147,36 @@ def get_all_fields_for_table(Model, callables, first_fields=None, for_export=Fal
 
     last_fields = {
         'Player': [],
-        'Match': [],
-        'Treatment': [],
+        'Group': [],
         'Subsession': [],
         'Participant': [
             'start_link',
             'exclude_from_data_analysis',
         ],
         'Session': [
-
-            'comment',
         ],
     }[Model.__name__]
 
     fields_for_export_but_not_changelist = {
         'Player': {'id', 'label'},
-        'Match': {'id'},
-        'Treatment': {'label'},
+        'Group': {'id'},
         'Subsession': {'id'},
         'Session': {
-            'label',
             'git_commit_timestamp',
             'base_pay',
         },
         'Participant': {
-            'label',
+            #'label',
             'ip_address',
-            #'_time_spent_on_each_page',
         },
     }[Model.__name__]
 
     fields_for_changelist_but_not_export = {
-        'Player': {'match', 'treatment', 'subsession', 'session', 'participant'},
-        'Match': {'treatment', 'subsession', 'session'},
-        'Treatment': {'subsession', 'session'},
+        'Player': {'group', 'subsession', 'session', 'participant'},
+        'Group': {'subsession', 'session'},
         'Subsession': {'session'},
         'Session': {
-            'players_assigned_to_treatments_and_matches',
+            'players_assigned_to_groups',
             'hidden',
         },
         'Participant': {
@@ -206,14 +209,8 @@ def get_all_fields_for_table(Model, callables, first_fields=None, for_export=Fal
               '_me_in_next_subsession_object_id',
               'participant',
               },
-        'Match':
+        'Group':
              set(),
-        'Treatment':
-            {
-                'label',
-                '_code',
-                'id',
-            },
         'Subsession':
             {
                 'code',
@@ -241,14 +238,16 @@ def get_all_fields_for_table(Model, callables, first_fields=None, for_export=Fal
         'Session':
              {
              'mturk_payment_was_sent',
-             'id',
+             'id', # can't be shown on change page, because pk not editable?
              'session_experimenter',
+             'subsession_names',
              'first_subsession_content_type',
              'first_subsession_object_id',
              'first_subsession',
              'is_for_mturk',
              'demo_already_used',
              'ready',
+             'vars',
              # don't hide the code, since it's useful as a checksum (e.g. if you're on the payments page)
              }
     }[Model.__name__]
@@ -269,6 +268,26 @@ def get_all_fields_for_table(Model, callables, first_fields=None, for_export=Fal
         return remove_duplicates(table_columns)
     else:
         return _add_links_for_foreign_keys(Model, remove_duplicates(table_columns))
+
+
+def get_all_fields_for_change_page(Model, readonly_fields):
+
+    table_fields = get_all_fields_for_table(Model, readonly_fields)
+
+    for_change_page_only = {
+        'Player': [],
+        'Group': [],
+        'Subsession': [],
+        'Session': [
+            'time_scheduled',
+            'comment',
+        ],
+        'Participant': [],
+    }[Model.__name__]
+
+    return remove_duplicates(table_fields + for_change_page_only)
+
+
 
 def get_list_display(Model, readonly_fields, first_fields=None):
     return get_all_fields_for_table(Model, callables=readonly_fields, first_fields=first_fields, for_export=False)
@@ -292,7 +311,7 @@ class FieldLinkToForeignKey:
         if object is None:
             return "(None)"
         else:
-            url = reverse('admin:%s_%s_change' %(object._meta.app_label,  object._meta.module_name),  
+            url = reverse('admin:%s_%s_change' %(object._meta.app_label,  object._meta.module_name),
                             args=[object.id])
             return '<a href="%s">%s</a>' % (url, object.__unicode__())
 
@@ -301,12 +320,12 @@ class FieldLinkToForeignKey:
         return True
 
 def _add_links_for_foreign_keys(model, list_display_fields):
-    
+
     result = []
     for list_display_field in list_display_fields:
         if hasattr(model, list_display_field):
             try:
-                if isinstance(model._meta.get_field(list_display_field), 
+                if isinstance(model._meta.get_field(list_display_field),
                               django.db.models.fields.related.ForeignKey):
                     result.append(FieldLinkToForeignKey(list_display_field))
                     continue
@@ -366,32 +385,22 @@ class PlayerAdmin(OTreeBaseModelAdmin):
 
     link.short_description = "Start link"
     link.allow_tags = True
-    list_filter = [NonHiddenSessionListFilter, 'subsession', 'treatment', 'match']
+    list_filter = [NonHiddenSessionListFilter, 'subsession', 'group']
     list_per_page = 40
 
     def queryset(self, request):
         qs = super(PlayerAdmin, self).queryset(request)
         return qs.filter(session__hidden=False)
 
-class MatchAdmin(OTreeBaseModelAdmin):
-    change_list_template = CHANGE_LIST_TEMPLATE
-
-    list_filter = [NonHiddenSessionListFilter, 'subsession', 'treatment']
-    list_per_page = 40
-
-    def queryset(self, request):
-        qs = super(MatchAdmin, self).queryset(request)
-        return qs.filter(session__hidden=False)
-
-class TreatmentAdmin(OTreeBaseModelAdmin):
+class GroupAdmin(OTreeBaseModelAdmin):
     change_list_template = CHANGE_LIST_TEMPLATE
 
     list_filter = [NonHiddenSessionListFilter, 'subsession']
+    list_per_page = 40
 
     def queryset(self, request):
-        qs = super(TreatmentAdmin, self).queryset(request)
+        qs = super(GroupAdmin, self).queryset(request)
         return qs.filter(session__hidden=False)
-
 
 class SubsessionAdmin(OTreeBaseModelAdmin):
     change_list_template = CHANGE_LIST_TEMPLATE
@@ -403,24 +412,52 @@ class SubsessionAdmin(OTreeBaseModelAdmin):
     list_filter = [NonHiddenSessionListFilter]
     list_editable = ['_skip']
 
-class GlobalDataAdmin(OTreeBaseModelAdmin):
-    list_display = ['id', 'open_session', 'lab_url_link', 'mturk_snippet_link']
+class GlobalSettingsAdmin(OTreeBaseModelAdmin):
+    list_display = ['id', 'open_session', 'persistent_urls_link', 'mturk_snippet_link']
     list_editable = ['open_session']
 
     def get_urls(self):
-        urls = super(GlobalDataAdmin, self).get_urls()
+        urls = super(GlobalSettingsAdmin, self).get_urls()
         my_urls = patterns('',
             (r'^(?P<pk>\d+)/mturk_snippet/$', self.admin_site.admin_view(self.mturk_snippet)),
+            (r'^(?P<pk>\d+)/persistent_urls/$', self.admin_site.admin_view(self.persistent_urls)),
         )
         return my_urls + urls
 
-    def lab_url_link(self, instance):
-        from otree.views.concrete import AssignVisitorToOpenSessionLab
-        return new_tab_link(AssignVisitorToOpenSessionLab.url(), 'Link')
-    lab_url_link.allow_tags = True
+    def persistent_urls_link(self, instance):
+        return new_tab_link('{}/persistent_urls/'.format(instance.pk), 'Link')
+    persistent_urls_link.allow_tags = True
+    persistent_urls_link.short_description = "Persistent URLs"
+
+    def persistent_urls(self, request, pk):
+        from otree.views.concrete import AssignVisitorToOpenSession
+        open_session_base_url = request.build_absolute_uri(AssignVisitorToOpenSession.url())
+        open_session_example_url = add_params_to_url(open_session_base_url, {otree.constants.participant_label: 'P1'})
+
+        return TemplateResponse(
+            request,
+            'otree/admin/PersistentLabURLs.html',
+            {
+                'open_session_example_url': open_session_example_url,
+                'access_code_for_open_session': otree.constants.access_code_for_open_session,
+                'participant_label': otree.constants.participant_label
+            }
+        )
 
     def mturk_snippet_link(self, instance):
         return new_tab_link('{}/mturk_snippet/'.format(instance.pk), 'Link')
+
+    def mturk_snippet(self, request, pk):
+        hit_page_js_url = request.build_absolute_uri(static_template_tag('otree/js/mturk_hit_page.js'))
+        from otree.views.concrete import AssignVisitorToOpenSessionMTurk
+        open_session_url = request.build_absolute_uri(AssignVisitorToOpenSessionMTurk.url())
+
+        return TemplateResponse(request,
+                                'otree/admin/MTurkSnippet.html',
+                                {'hit_page_js_url': hit_page_js_url,
+                                 'open_session_url': open_session_url,},
+                                content_type='text/plain')
+
 
     mturk_snippet_link.allow_tags = True
     mturk_snippet_link.short_description = "HTML snippet for MTurk HIT page"
@@ -430,10 +467,10 @@ class GlobalDataAdmin(OTreeBaseModelAdmin):
         from otree.views.concrete import AssignVisitorToOpenSessionMTurk
         open_session_url = request.build_absolute_uri(AssignVisitorToOpenSessionMTurk.url())
 
-        return render_to_response('otree/admin/MTurkSnippet.html',
-                                  {'hit_page_js_url': hit_page_js_url,
-                                   'open_session_url': open_session_url,},
-                                  content_type='text/plain')
+        return TemplateResponse(context, 'otree/admin/MTurkSnippet.html',
+                                {'hit_page_js_url': hit_page_js_url,
+                                 'open_session_url': open_session_url,},
+                                content_type='text/plain')
 
 
 
@@ -469,8 +506,18 @@ class SessionAdmin(OTreeBaseModelAdmin):
         )
         return my_urls + urls
 
+    def participants_table_link(self, instance):
+
+        participants_table_url = reverse('admin:%s_%s_changelist' % (Participant._meta.app_label, Participant._meta.module_name))
+        return new_tab_link(
+            add_params_to_url(participants_table_url, {'session': instance.pk}),
+            'Link'
+        )
+    participants_table_link.allow_tags = True
+    participants_table_link.short_description = 'Monitor participants'
+
     def participant_urls(self, request, session):
-        participants = session.participants()
+        participants = session.get_participants()
         return [request.build_absolute_uri(participant._start_url()) for participant in participants]
 
     def start_links(self, request, pk):
@@ -479,7 +526,7 @@ class SessionAdmin(OTreeBaseModelAdmin):
 
     def start_links_link(self, instance):
         return new_tab_link(
-            '{}/start_links/'.format(instance.pk),
+            '/admin/sessionlib/session/{}/start_links/'.format(instance.pk),
             'Link'
         )
 
@@ -497,7 +544,7 @@ class SessionAdmin(OTreeBaseModelAdmin):
 
 
     def raw_participant_urls_link(self, instance):
-        return new_tab_link('{}/raw_participant_urls/?{}={}'.format(instance.pk,
+        return new_tab_link('/admin/sessionlib/session/{}/raw_participant_urls/?{}={}'.format(instance.pk,
                                                           otree.constants.session_user_code,
                                                           instance.session_experimenter.code), 'Link')
 
@@ -508,35 +555,39 @@ class SessionAdmin(OTreeBaseModelAdmin):
 
     def payments(self, request, pk):
         session = self.model.objects.get(pk=pk)
-        total_payments = sum(participant.total_pay() or 0 for participant in session.participants())
+        participants = session.get_participants()
+        total_payments = sum(participant.total_pay() or 0 for participant in participants)
 
         try:
-            mean_payment = total_payments/len(participant)
+            mean_payment = total_payments/len(participants)
         except ZeroDivisionError:
             mean_payment = 0
 
 
-        return render_to_response('otree/admin/Payments.html',
-                                  {'participant': participant,
-                                  'total_payments': currency(total_payments),
-                                  'mean_payment': currency(mean_payment),
-                                  'session_code': session.code,
-                                  'session_name': session,
-                                  'base_pay': currency(session.base_pay),
-                                  })
+        return TemplateResponse(request, 'otree/admin/Payments.html',
+                                {'participants': participants,
+                                'total_payments': total_payments,
+                                'mean_payment': mean_payment,
+                                'session_code': session.code,
+                                'session_name': session,
+                                'base_pay': session.base_pay,
+                                })
 
     def payments_link(self, instance):
         if instance.payments_ready():
             link_text = 'Ready'
         else:
             link_text = 'Incomplete'
-        return new_tab_link('{}/payments/'.format(instance.pk), link_text)
+        #FIXME: use proper URL
+        return new_tab_link('/admin/sessionlib/session/{}/payments/'.format(instance.pk), link_text)
 
     payments_link.short_description = "Payments page"
     payments_link.allow_tags = True
 
-    readonly_fields = get_callables(otree.sessionlib.models.Session, [])
+    readonly_fields = get_readonly_fields(otree.sessionlib.models.Session, [])
     list_display = get_all_fields_for_table(otree.sessionlib.models.Session, readonly_fields)
+
+    fields = get_all_fields_for_change_page(otree.sessionlib.models.Session, readonly_fields)
 
     list_editable = ['hidden']
 

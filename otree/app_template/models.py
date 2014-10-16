@@ -1,10 +1,16 @@
 # -*- coding: utf-8 -*-
+# <standard imports>
 from __future__ import division
-"""Documentation at https://github.com/oTree-org/otree/wiki"""
-
 from otree.db import models
 import otree.models
+from otree import widgets
 from otree.common import Money, money_range
+import random
+# </standard imports>
+
+class Constants:
+    my_constant = 1
+
 
 
 author = 'Your name here'
@@ -13,44 +19,36 @@ doc = """
 Description of this app.
 """
 
+
 class Subsession(otree.models.BaseSubsession):
 
     name_in_url = '{{ app_name }}'
 
 
-class Treatment(otree.models.BaseTreatment):
+class Group(otree.models.BaseGroup):
     # <built-in>
     subsession = models.ForeignKey(Subsession)
     # </built-in>
 
-
-class Match(otree.models.BaseMatch):
-    # <built-in>
-    subsession = models.ForeignKey(Subsession)
-    treatment = models.ForeignKey(Treatment)
-    # </built-in>
-
-    players_per_match = 1
+    players_per_group = 1
 
     def set_payoffs(self):
-        for p in self.players:
+        for p in self.get_players():
             p.payoff = 0 # change to whatever the payoff should be
 
 
 class Player(otree.models.BasePlayer):
     # <built-in>
     subsession = models.ForeignKey(Subsession)
-    treatment = models.ForeignKey(Treatment, null = True)
-    match = models.ForeignKey(Match, null = True)
+    group = models.ForeignKey(Group, null = True)
     # </built-in>
 
     def other_player(self):
-        """Returns other player in match. Only valid for 2-player matches."""
-        return self.other_players_in_match()[0]
+        """Returns other player in group. Only valid for 2-player groups."""
+        return self.get_others_in_group()[0]
 
     # example field
     my_field = models.MoneyField(
-        default=None,
         doc="""
         Description of this field, for documentation
         """
@@ -62,8 +60,5 @@ class Player(otree.models.BasePlayer):
 
 
     def role(self):
-        # you can make this depend of self.index_among_players_in_match
+        # you can make this depend of self.id_in_group
         return ''
-
-def treatments():
-    return [Treatment.create()]

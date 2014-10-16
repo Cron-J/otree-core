@@ -47,7 +47,7 @@ def is_subsession_app(app_label):
         models_module = import_module('{}.models'.format(app_label))
     except ImportError:
         return False
-    class_names = ['Player', 'Match', 'Treatment', 'Subsession']
+    class_names = ['Player', 'Group', 'Subsession']
     return all(hasattr(models_module, ClassName) for ClassName in class_names)
 
 def git_commit_timestamp():
@@ -88,13 +88,11 @@ def url_pattern(cls, is_sequence_url=False):
 def directory_name(path):
     return os.path.basename(os.path.normpath(path))
 
-def access_code_for_open_session():
-    hash = hashlib.sha1()
-    hash.update(settings.SECRET_KEY)
-    return hash.hexdigest()
-
 def get_session_module():
-    return import_module('{}.session'.format(directory_name(settings.BASE_DIR)))
+    base_dir_name = directory_name(settings.BASE_DIR)
+    module_name = getattr(settings, 'SESSION_MODULE',
+                          '{}.session'.format(base_dir_name))
+    return import_module(module_name)
 
 def get_models_module(app_name):
     return import_module('{}.models'.format(app_name))
@@ -102,20 +100,45 @@ def get_models_module(app_name):
 def flatten(list_of_lists):
     return [item for sublist in list_of_lists for item in sublist]
 
+def get_app_name_from_import_path(import_path):
+    '''
+    Return the registered otree app that contains the given module.
+
+    >>> get_app_name_from_import_path('tests.simple_game.models')
+    'tests.simple_game'
+    >>> get_app_name_from_import_path('tests.simple_game.views.mixins.FancyMixin')
+    'tests.simple_game'
+    >>> get_app_name_from_import_path('unregistered_app.models')
+    Traceback (most recent call last):
+      File "<stdin>", line 1, in ?
+    ValueError: The module unregistered_app.models is not part of any known otree app.
+    '''
+    app_name = import_path
+    while app_name:
+        if app_name in settings.INSTALLED_OTREE_APPS:
+            return app_name
+        if '.' in app_name:
+            # Remove everything from the last dot.
+            app_name = '.'.join(app_name.split('.')[:-1])
+        else:
+            app_name = None
+    raise ValueError('The module {} is not part of any known otree app.'.format(import_path))
+
 def _views_module(model_instance):
-    return import_module('{}.views'.format(model_instance._meta.app_label))
+    app_name = get_app_name_from_import_path(model_instance.__module__)
+    return import_module('{}.views'.format(app_name))
 
 def _players(self):
     if hasattr(self, '_players'):
         return self._players
-    self._players = list(self.player_set.order_by('index_among_players_in_match'))
+    self._players = list(self.player_set.order_by('id_in_group'))
     return self._players
 
-def _matches(self):
-    if hasattr(self, '_matches'):
-        return self._matches
-    self._matches = list(self.match_set.all())
-    return self._matches
+def _groups(self):
+    if hasattr(self, '_groups'):
+        return self._groups
+    self._groups = list(self.group_set.all())
+    return self._groups
 
 def money_range(first, last, increment=Money(0.01)):
     assert last >= first

@@ -1,10 +1,11 @@
 # -*- coding: utf-8 -*-
-from django.shortcuts import get_object_or_404, render_to_response
+from django.shortcuts import get_object_or_404
+from django.template.response import TemplateResponse
 from django.http import HttpResponse, HttpResponseRedirect, Http404, HttpResponseNotFound
 import vanilla
 import otree.constants as constants
 from otree.sessionlib.models import Session
-from otree.session import create_session, SessionTypeDirectory, demo_enabled_session_types
+from otree.session import create_session, SessionTypeDirectory
 import threading
 import time
 import urllib
@@ -24,16 +25,14 @@ class DemoIndex(vanilla.View):
         intro_text = getattr(get_session_module(), 'demo_page_intro_text', '')
 
         session_info = []
-        for session_type in demo_enabled_session_types():
+        for session_type in SessionTypeDirectory(demo_only=True).select():
             session_info.append(
                 {
                     'type_name': session_type.name,
                     'url': escaped_start_link_url(session_type.name),
-                    'doc': session_type.doc or '',
-                    'subsession_apps': ', '.join([app_name_format(app_name) for app_name in session_type.subsession_apps]),
                 }
             )
-        return render_to_response('otree/demo/index.html', {'session_info': session_info, 'intro_text': intro_text})
+        return TemplateResponse(self.request, 'otree/demo/index.html', {'session_info': session_info, 'intro_text': intro_text})
 
 def ensure_enough_spare_sessions(type_name):
     time.sleep(5)
@@ -51,7 +50,7 @@ def ensure_enough_spare_sessions(type_name):
         create_session(
             special_category=constants.special_category_demo,
             type_name=type_name,
-            preassign_players_to_matches=True,
+            preassign_players_to_groups=True,
         )
 
 
@@ -66,8 +65,7 @@ def get_session(type_name):
     if sessions.exists():
         return sessions[:1].get()
 
-def info_about_session_type(session_type_name):
-    session_type = SessionTypeDirectory().get_item(session_type_name)
+def info_about_session_type(session_type):
 
     # collapse repeated subsessions, encode as follows: [[app_name, num_rounds], [app_name2, num_occurrences2], ...]
 
@@ -96,13 +94,15 @@ def render_to_start_links_page(request, session, is_demo_page):
     context_data = {
             'session_type_name': session.type_name,
             'experimenter_url': request.build_absolute_uri(session.session_experimenter._start_url()),
-            'participant_urls': [request.build_absolute_uri(participant._start_url()) for participant in session.participants()],
+            'participant_urls': [request.build_absolute_uri(participant._start_url()) for participant in session.get_participants()],
             'is_demo_page': is_demo_page,
     }
 
-    context_data.update(info_about_session_type(session.type_name))
+    session_type = SessionTypeDirectory(demo_only=True).get_item(session.type_name)
+    context_data.update(info_about_session_type(session_type))
 
-    return render_to_response(
+    return TemplateResponse(
+        request,
         'otree/admin/StartLinks.html',
         context_data
     )
@@ -116,12 +116,14 @@ class Demo(vanilla.View):
     def get(self, *args, **kwargs):
         session_type_name=urllib.unquote_plus(kwargs['session_type'])
 
+
+        session_dir = SessionTypeDirectory(demo_only=True)
         try:
-            SessionTypeDirectory().get_item(session_type_name)
+            session_dir.get_item(session_type_name)
         except KeyError:
             return HttpResponseNotFound('Session type "{}" not found'.format(session_type_name))
         else:
-            if not session_type_name in [st.name for st in demo_enabled_session_types()]:
+            if not session_type_name in [st.name for st in session_dir.select()]:
                 return HttpResponseNotFound('Session type "{}" not enabled for demo'.format(session_type_name))
 
 
@@ -142,7 +144,8 @@ class Demo(vanilla.View):
 
             return render_to_start_links_page(self.request, session, is_demo_page=True)
         else:
-            return render_to_response(
+            return TemplateResponse(
+                self.request,
                 'otree/WaitPage.html',
                 {
                     'SequenceViewURL': escaped_start_link_url(session_type_name),

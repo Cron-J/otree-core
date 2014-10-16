@@ -3,7 +3,7 @@ from django.contrib.auth import models as auth_models
 from django.contrib.auth.management import create_superuser
 from django.db.models import signals
 import otree.constants
-from otree.sessionlib.models import StubModel, GlobalData, Session
+from otree.sessionlib.models import StubModel, GlobalSettings, Session
 
 
 def create_default_superuser(app, created_models, verbosity, **kwargs):
@@ -44,10 +44,9 @@ if getattr(settings, 'CREATE_DEFAULT_SUPERUSER', False):
 
 def create_singleton_objects(sender, **kwargs):
     if sender.__name__ == 'django.contrib.auth.models':
-        for ModelClass in [StubModel, GlobalData]:
+        for ModelClass in [StubModel, GlobalSettings]:
             # if it doesn't already exist, create one.
-            if not ModelClass.objects.all().exists():
-                ModelClass().save()
+            ModelClass.objects.get_or_create()
 
 signals.post_syncdb.connect(create_singleton_objects)
 
