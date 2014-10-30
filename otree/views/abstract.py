@@ -44,6 +44,11 @@ from otree.models_concrete import PageVisit, WaitPageVisit, CompletedSubsessionW
 from django.db import transaction
 import contextlib
 
+WAIT_PAGE_POLL_LENGTH_SECONDS = 20
+
+# to avoid a second poll from being sent while waiting for the first to finish??
+WAIT_PAGE_POLL_FREQUENCY_SECONDS = WAIT_PAGE_POLL_LENGTH_SECONDS + 1
+
 # Get an instance of a logger
 logger = logging.getLogger(__name__)
 
@@ -228,7 +233,8 @@ class WaitPageMixin(object):
                 'wait_page_url': self.wait_page_request_url(),
                 'debug_values': self.get_debug_values() if settings.DEBUG else None,
                 'body_text': self.body_text(),
-                'title_text': self.title_text()
+                'title_text': self.title_text(),
+                'poll_frequency_seconds': WAIT_PAGE_POLL_FREQUENCY_SECONDS,
             }
         )
         response[constants.wait_page_http_header] = constants.get_param_truth_value
@@ -260,6 +266,9 @@ class CheckpointMixin(object):
         else:
             self._group_or_subsession = self.subsession
         if self.request_is_from_wait_page():
+            poll_end_time = time.time() + WAIT_PAGE_POLL_LENGTH_SECONDS
+            while time.time() < poll_end_time and not self._is_complete():
+                time.sleep(1)
             return self._response_to_wait_page()
         else:
             if self._is_complete():

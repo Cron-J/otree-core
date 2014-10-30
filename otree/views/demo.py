@@ -11,6 +11,7 @@ import time
 import urllib
 from otree.common import get_session_module, get_models_module, app_name_format
 from django.conf import settings
+from otree.views.abstract import WAIT_PAGE_POLL_FREQUENCY_SECONDS
 
 def start_link_url(session_type_name):
     return '/demo/{}/'.format(session_type_name)
@@ -152,8 +153,8 @@ class Demo(vanilla.View):
                 'otree/WaitPage.html',
                 {
                     'SequenceViewURL': start_link_url(session_type_name),
-
                     'title_text': 'Please wait',
                     'body_text': 'Creating a session.',
+                    'poll_frequency_seconds': 5, # don't use long polling
                 }
             )

@@ -19,6 +19,8 @@
     }
 
     var SECOND = 1000;
-    var intervalId = window.setInterval("checkIfReady()", 4 * SECOND);
+    // skip the first delay
+    checkIfReady();
+    var intervalId = window.setInterval("checkIfReady()", {{ poll_frequency_seconds }} * SECOND);
 
 </script>
