@@ -57,39 +57,6 @@ class DemoIndex(vanilla.View):
         )
 
 
-def ensure_enough_spare_sessions(type_name):
-
-    time.sleep(5)
-
-    DESIRED_SPARE_SESSIONS = 3
-
-    spare_sessions = Session.objects.filter(
-        special_category=constants.session_special_category_demo,
-        type_name=type_name,
-        demo_already_used=False,
-    ).count()
-
-    # fill in whatever gap exists. want at least 3 sessions waiting.
-    for i in range(DESIRED_SPARE_SESSIONS - spare_sessions):
-        create_session(
-            special_category=constants.session_special_category_demo,
-            type_name=type_name,
-            preassign_players_to_groups=True,
-        )
-
-
-def get_session(type_name):
-
-    sessions = Session.objects.filter(
-        special_category=constants.session_special_category_demo,
-        type_name=type_name,
-        demo_already_used=False,
-        ready=True,
-    )
-    if sessions.exists():
-        return sessions[:1].get()
-
-
 def sort_links(links):
     """Return the sorted .items() result from a dictionary
 
@@ -166,48 +133,16 @@ def render_to_start_links_page(request, session, is_demo_page):
     )
 
 
-class Demo(GenericWaitPageMixin, vanilla.View):
-
+class Demo(vanilla.View):
     @classmethod
     def url_pattern(cls):
         return r"^demo/(?P<session_type>.+)/$"
 
-    def _is_ready(self):
-        session = get_session(self.session_type_name)
-        return bool(session)
-
-    def _before_returning_wait_page(self):
-        session_types = session_types_dict(demo_only=True)
-        try:
-            session_types[self.session_type_name]
-        except KeyError:
-            msg = (
-                "Session type '{}' not found, or not enabled for demo"
-            ).format(self.session_type_name)
-            return HttpResponseNotFound(msg)
-
-
-        t = threading.Thread(
-            target=ensure_enough_spare_sessions,
-            args=(self.session_type_name,)
-        )
-        t.start()
-
-    def body_text(self):
-        return 'Creating a session'
-
-    def _response_when_ready(self):
-        session = get_session(self.session_type_name)
-        session.demo_already_used = True
-        session.save()
-
-        return render_to_start_links_page(
-            self.request, session, is_demo_page=True
+    def get(self, request, session_type=None):
+        session = create_session(
+            special_category = constants.session_special_category_demo,
+            type_name = session_type,
+            preassign_players_to_groups=True
         )
 
-    def dispatch(self, request, *args, **kwargs):
-        self.session_type_name=kwargs['session_type']
-        return super(Demo, self).dispatch(request, *args, **kwargs)
-
-    def _get_wait_page(self):
-        return TemplateResponse(self.request, 'otree/WaitPage.html', {'view': self})
+        return render_to_start_links_page(request, session, is_demo_page=True)
