@@ -59,18 +59,51 @@ register.filter('c', c)
 class FormFieldNode(template.Node):
     is_form_field_marker = True
 
+    # TODO: Provide actual rendering during output phase.
+
+    class Identifier(object):
+        def __init__(self, variable, node):
+            self.variable = variable
+            self.node = node
+
+        def __str__(self):
+            return str(self.node)
+
+        def __unicode__(self):
+            return unicode(self.node)
+
+        def is_valid(self):
+            # The variable name is valid if it contains at least one dot.
+            return '.' in self.variable
+
+        def get_instance_name(self):
+            """Returns everything until the last dot.
+
+            That will be the name of the variable which should contain the model
+            instance.
+            """
+            return self.variable.split('.', -1)[0]
+
+        def get_field_name(self):
+            """Returns everything after the last dot.
+
+            That will be the modelfield's name.
+            """
+            return self.variable.split('.', -1)[1]
+
     def __init__(self, tokens, identifier):
         self.tokens = tokens
-        self.identifier = identifier
+        self.identifiers = [self.Identifier(identifier, self)]
 
     def get_identifiers(self):
-        return [self.identifier]
+        return self.identifiers
 
     def render(self, context):
         return 'field'
 
     def get_tag_definition(self):
-        return '{% {tokens} %}'.format(tokens=' '.join(self.tokens))
+        tokens = ' '.join(self.tokens)
+        return '{% ' + tokens + ' %}'
 
     @classmethod
     def parse(cls, parser, token):
