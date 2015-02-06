@@ -26,9 +26,10 @@ class TemplateFormDefinition(object):
     """
     Helper to extract form definitions out of the template.
 
-    Parses the template and traverses the template nodes to find all occurrences
-    of {% formfield %} tags. Then the first argument for those tags are checked
-    if they are present in the context that will be used to render the template.
+    Parses the template and traverses the template nodes to find all
+    occurrences of {% formfield %} tags. Then the first argument for those tags
+    are checked if they are present in the context that will be used to render
+    the template.
 
     Form there the actual model instance can be extract and all the fields are
     found.

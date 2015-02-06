@@ -79,8 +79,8 @@ class FormFieldNode(template.Node):
         def get_instance_name(self):
             """Returns everything until the last dot.
 
-            That will be the name of the variable which should contain the model
-            instance.
+            That will be the name of the variable which should contain the
+            model instance.
             """
             return self.variable.split('.', -1)[0]
 

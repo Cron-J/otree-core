@@ -113,10 +113,6 @@ class TemplateFormDefinitionTest(TestCase):
         # TODO
         pass
 
-    def test_multiple_model_instances(self):
-        # TODO
-        pass
-
     def test_formfield_tag_inside_if(self):
         # TODO
         pass
