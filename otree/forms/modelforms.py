@@ -1,5 +1,8 @@
 import collections
+import re
 
+from django.core.exceptions import FieldError
+from django.db import models
 from django.template import loader
 from django.template import Context
 from django.template import RequestContext
@@ -131,6 +134,13 @@ class TemplateFormDefinition(object):
 
         return identifiers
 
+    def get_identifier_by_field_name(self, field_name):
+        for identifier in self.field_identifiers:
+            if identifier.get_field_name() == field_name:
+                return identifier
+        raise ValueError("Unknown field name '{field_name}'.".format(
+            field_name=field_name))
+
     def get_model_instance(self):
         identifier = self.field_identifiers[0]
         variable = Variable(identifier.get_instance_name())
@@ -171,11 +181,30 @@ class TemplateFormDefinition(object):
 
     def get_form_class(self):
         self._bootstrap()
-        form_class = otree.forms.modelform_factory(
-            self.get_model_class(),
-            fields=self.get_form_fields(),
-            form=self.get_base_form_class(),
-            formfield_callback=otree.forms.formfield_callback)
+        try:
+            form_class = otree.forms.modelform_factory(
+                self.get_model_class(),
+                fields=self.get_form_fields(),
+                form=self.get_base_form_class(),
+                formfield_callback=otree.forms.formfield_callback)
+        except FieldError as error:
+            # Trying to extract the field name from the modelforms error
+            # message. That is a peculiar method, but I don't see another way
+            # to get to the actual name without duplicating the
+            # field-validation logic from Django's ModelFormMetaclass.
+            match = re.search('Unknown field\(s\) \(([^\)]+)\)', unicode(error))
+            field_name = match.groups()[0]
+            identifier = self.get_identifier_by_field_name(field_name)
+            instance = self.get_model_instance()
+            self.error(
+                'The model class `{model}` of variable `{variable}` does not '
+                'contain a field called `{field_name}`.'.format(
+                    model=instance.__class__,
+                    variable=identifier.variable,
+                    field_name=field_name),
+                code='not_a_field',
+                node=identifier.node)
+
         return form_class
 
 

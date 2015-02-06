@@ -111,12 +111,17 @@ class TemplateFormDefinitionTest(TestCase):
         self.assertTrue('NoneType' in str(cm.exception))
 
     def test_variable_is_not_a_model_field(self):
-        # TODO
-        pass
+        template = self.get_template_nodes(
+            '''
+            {% formfield player.not_a_field %}
+            ''')
 
-    def test_variable_is_unsaved_model_instance(self):
-        # TODO
-        pass
+        context = {'player': self.player}
+        with self.assertRaises(FormDefinitionError) as cm:
+            get_modelform_from_template(template, context)
+
+        self.assertEqual(cm.exception.code, 'not_a_field')
+        self.assertTrue('not_a_field' in str(cm.exception))
 
     def test_multiple_model_instances(self):
         # TODO
