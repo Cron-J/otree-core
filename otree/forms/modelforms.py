@@ -25,6 +25,10 @@ class FormDefinitionError(Exception):
         super(FormDefinitionError, self).__init__(*args, **kwargs)
 
 
+class NoFormDefinitionFound(Exception):
+    """Raised when there is no {% formfield %} found in a template."""
+
+
 class TemplateFormDefinition(object):
     """
     Helper to extract form definitions out of the template.
@@ -112,6 +116,18 @@ class TemplateFormDefinition(object):
                     # default to empty list.
                     nodelist = getattr(node, nodelist_attr, [])
                     remaining_nodes.extend(nodelist)
+
+        if not formfield_nodes:
+            if self.template.name:
+                template_name = ': {0}'.format(self.template.name)
+            else:
+                template_name = ''
+            raise NoFormDefinitionFound(
+                'Unable to find any {{% formfield %}} template tags in the '
+                'given template{template_name}. Please refer to the otree '
+                'documentation to learn more about the limitations defining a '
+                'form in the template with {{% formfield %}}.'.format(
+                    template_name=template_name))
 
         return formfield_nodes
 

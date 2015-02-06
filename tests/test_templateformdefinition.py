@@ -3,8 +3,9 @@ from django.template import Template
 from django.test import TestCase
 
 from otree.forms.modelforms import FormDefinitionError
-from otree.forms.modelforms import get_modelform_from_template
+from otree.forms.modelforms import NoFormDefinitionFound
 from otree.forms.modelforms import TemplateFormDefinition
+from otree.forms.modelforms import get_modelform_from_template
 import otree.db.models
 
 from tests.simple_game.models import Player
@@ -138,6 +139,19 @@ class TemplateFormDefinitionTest(TestCase):
             get_modelform_from_template(template, context)
 
         self.assertEqual(cm.exception.code, 'multiple_instances_found')
+
+    def test_no_formfield_found(self):
+        template = self.get_template_nodes('')
+
+        context = {}
+        with self.assertRaises(NoFormDefinitionFound):
+            get_modelform_from_template(template, context)
+
+        # Test that template name is part of the error message:
+        try:
+            get_modelform_from_template('tests/empty.html', context)
+        except NoFormDefinitionFound as exception:
+            self.assertTrue('tests/empty.html' in str(exception))
 
     def test_formfield_tag_inside_if(self):
         # TODO
