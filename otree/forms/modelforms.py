@@ -135,7 +135,7 @@ class TemplateFormDefinition(object):
         identifier = self.field_identifiers[0]
         variable = Variable(identifier.get_instance_name())
         try:
-            return variable.resolve(self.context)
+            instance = variable.resolve(self.context)
         except VariableDoesNotExist:
             self.error(
                 'Cannot find variable `{variable}` in template context. '
@@ -145,6 +145,17 @@ class TemplateFormDefinition(object):
                     instance_name=identifier.get_instance_name()),
                 code='instance_not_found',
                 node=identifier.node)
+
+        # Make sure the variable is an actual model instance.
+        if not isinstance(instance, models.Model):
+            self.error(
+                'The variable `{instance_name}` does not contain a model '
+                'instance, but is of type `{type}`.'.format(
+                    instance_name=identifier.get_instance_name(),
+                    type=type(instance)),
+                code='unexpected_type',
+                node=identifier.node)
+        return instance
 
     def get_model_class(self):
         return self.get_model_instance().__class__

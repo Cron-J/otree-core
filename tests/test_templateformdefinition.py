@@ -98,8 +98,17 @@ class TemplateFormDefinitionTest(TestCase):
         self.assertEqual(cm.exception.code, 'instance_not_found')
 
     def test_variable_is_not_a_model_instance(self):
-        # TODO
-        pass
+        template = self.get_template_nodes(
+            '''
+            {% formfield player.name %}
+            ''')
+
+        context = {'player': None}
+        with self.assertRaises(FormDefinitionError) as cm:
+            get_modelform_from_template(template, context)
+
+        self.assertEqual(cm.exception.code, 'unexpected_type')
+        self.assertTrue('NoneType' in str(cm.exception))
 
     def test_variable_is_not_a_model_field(self):
         # TODO
