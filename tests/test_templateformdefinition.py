@@ -71,7 +71,7 @@ class TemplateFormDefinitionTest(TestCase):
         with self.assertRaises(FormDefinitionError) as cm:
             get_modelform_from_template(template, context)
 
-        self.assertEqual(cm.exception.code, 'invalid_variable_format')
+        self.assertEqual(cm.exception.code, 'instance_not_found')
 
     def test_variable_contains_no_dot(self):
         template = self.get_template_nodes(
