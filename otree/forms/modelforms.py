@@ -117,20 +117,31 @@ class TemplateFormDefinition(object):
 
     def get_field_identifiers(self):
         identifiers = []
+
         for node in self.formfield_nodes:
             identifiers.extend(node.get_identifiers())
 
+        previous_instance_name = None
         for identifier in identifiers:
             if not identifier.is_valid():
                 self.error(
                     'Please provide a field in the format: <model>.<field>, '
-                    'e.g. {% formfield player.cash %} if you want to '
-                    'reference the cash field on the player object.',
+                    'e.g. {% formfield mymodel.some_value %} if you want to '
+                    'reference the `some_value` field on the `mymodel` '
+                    'object.',
                     code='invalid_variable_format',
                     node=identifier.node)
-
-        # Validate that only one model variable is used.
-        # ...
+            # Validate that only one model variable is used.
+            if previous_instance_name is not None:
+                if previous_instance_name != identifier.get_instance_name():
+                    self.error(
+                        'You cannot use different model instances in the same '
+                        'form. Earlier in the template there is already'
+                        '`{earlier_variable}` in use.'.format(
+                            earlier_variable=previous_instance_name,),
+                        code='multiple_instances_found',
+                        node=identifier.node)
+            previous_instance_name = identifier.get_instance_name()
 
         return identifiers
 

@@ -124,8 +124,20 @@ class TemplateFormDefinitionTest(TestCase):
         self.assertTrue('not_a_field' in str(cm.exception))
 
     def test_multiple_model_instances(self):
-        # TODO
-        pass
+        player1 = SimplePlayer()
+        player2 = SimplePlayer()
+
+        template = self.get_template_nodes(
+            '''
+            {% formfield player1.name %}
+            {% formfield player2.name %}
+            ''')
+
+        context = {'player1': player1, 'player2': player2}
+        with self.assertRaises(FormDefinitionError) as cm:
+            get_modelform_from_template(template, context)
+
+        self.assertEqual(cm.exception.code, 'multiple_instances_found')
 
     def test_formfield_tag_inside_if(self):
         # TODO
