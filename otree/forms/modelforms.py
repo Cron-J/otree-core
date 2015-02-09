@@ -117,6 +117,11 @@ class TemplateFormDefinition(object):
                     # default to empty list.
                     nodelist = getattr(node, nodelist_attr, [])
                     remaining_nodes.extend(nodelist)
+                # Support floppyform's {% form %} tag.
+                if (
+                        isinstance(getattr(node, 'options', None), dict) and
+                        'nodelist' in node.options):
+                    remaining_nodes.extend(node.options['nodelist'])
 
         if not formfield_nodes:
             if self.template.name:
