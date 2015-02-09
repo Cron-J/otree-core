@@ -90,3 +90,17 @@ class TestPageView(BaseViewTestCase):
                 <input type="number" name="add100_2" required id="id_add100_2"
                  min="0" class="form-control" value="5">
             ''', html=True)
+
+    def test_contains_custom_labels(self):
+        request = self.factory.get(
+            '/{0}/{1}/shared/WaitUntilAssignedToGroup/0/'.format(
+                self.kwargs[constants.user_type],
+                self.kwargs[constants.session_user_code]))
+
+        response = self.view(request, **self.kwargs)
+        self.assertContains(
+            response, '''
+                <label class="control-label" for="id_add100_1">
+                    Your value here:
+                </label>
+            ''', html=True)

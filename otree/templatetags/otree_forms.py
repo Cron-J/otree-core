@@ -1,7 +1,9 @@
 """Tags related to form rendering.
 
 To load these in the template use {% load otree_tags %}."""
+
 from django import template
+from django.template.base import token_kwargs
 
 
 class FormFieldNode(template.Node):
@@ -44,10 +46,11 @@ class FormFieldNode(template.Node):
             """
             return self.variable.split('.', -1)[1]
 
-    def __init__(self, tokens, variable):
+    def __init__(self, tokens, variable, with_arguments):
         self.tokens = tokens
         self.identifiers = [self.Identifier(variable, self)]
         self.template = template.loader.get_template(self.template_name)
+        self.with_arguments = with_arguments
 
     def get_identifiers(self):
         return self.identifiers
@@ -65,11 +68,16 @@ class FormFieldNode(template.Node):
 
     def get_context(self, context):
         fields = self.get_bound_fields(context)
-        return context.new({
+        extra_context = {
             'form': self.get_form_instance(context),
             'field': fields[0],
             'fields': fields,
-        })
+        }
+        with_context = dict([
+            (name, var.resolve(context))
+            for name, var in self.with_arguments.items()])
+        extra_context.update(with_context)
+        return context.new(extra_context)
 
     def render(self, context):
         field_context = self.get_context(context)
@@ -84,9 +92,25 @@ class FormFieldNode(template.Node):
         tokens = token.split_contents()
         bits = list(tokens)
         # That's the tag name (formfield).
-        bits.pop(0)
-        if len(bits) != 1:
+        tagname = bits.pop(0)
+        if len(bits) == 0:
             raise template.TemplateSyntaxError(
-                "%r tag expects one argument only")
+                "'{tagname}' tag expects at least one argument.".format(
+                    tagname=tagname))
         variable = bits.pop(0)
-        return cls(tokens, variable)
+        if variable == 'with':
+            raise template.TemplateSyntaxError(
+                "First argument of '{tagname}' tag must be a "
+                "model field.".format(tagname=tagname))
+        if bits:
+            with_ = bits.pop(0)
+            if with_ != 'with':
+                raise template.TemplateSyntaxError(
+                    "'{tagname}' tag must be in the form of "
+                    "{{% {tagname} <model-field> "
+                    "[with key=value key=value ...] %}}".format(
+                        tagname=tagname))
+            with_arguments = token_kwargs(bits, parser, support_legacy=False)
+        else:
+            with_arguments = {}
+        return cls(tokens, variable, with_arguments)

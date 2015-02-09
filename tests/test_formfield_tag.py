@@ -30,3 +30,20 @@ class TemplateFormRenderingTest(FormDefinitionTestMixin, TestCase):
         self.assertTrue('<input' in rendered, rendered)
         self.assertTrue('name="name"' in rendered, rendered)
         self.assertTrue('value="initial"' in rendered, rendered)
+
+    def test_custom_labels(self):
+        template = self.get_template_nodes(
+            '''
+            {% formfield player.name with label="My custom label" %}
+            ''')
+
+        context = Context({'player': self.SimplePlayer(name='initial')})
+
+        definition = TemplateFormDefinition(template, context)
+        form = definition.get_form()
+        definition.apply_to_context(context, form)
+
+        rendered = template.render(context)
+        self.assertInHTML(
+            '<label for="id_name">My custom label:</label>',
+            rendered)
