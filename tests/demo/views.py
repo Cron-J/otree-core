@@ -1,14 +1,10 @@
 from django.template.response import TemplateResponse
-from django.template import RequestContext
 
 from .forms import FormFieldModelForm, WidgetDemoForm
 
 
 def index(request):
-    return TemplateResponse(
-        request, 'demo/index.html', {},
-        context_instance=RequestContext(request)
-    )
+    return TemplateResponse(request, 'demo/index.html', {})
 
 
 def widgets(request):
