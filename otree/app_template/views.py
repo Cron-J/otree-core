@@ -17,9 +17,6 @@ def vars_for_all_templates(self):
 
 class MyPage(Page):
 
-    form_model = models.Player
-    form_fields = ['my_field']
-
     def participate_condition(self):
         return True
 
