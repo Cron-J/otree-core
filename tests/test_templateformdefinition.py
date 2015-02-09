@@ -12,12 +12,21 @@ from tests.simple_game.models import Player
 from tests.utils import capture_stdout
 
 
-class SimplePlayer(otree.db.models.Model):
-    name = otree.db.models.CharField(max_length=50)
-    age = otree.db.models.IntegerField(default=30)
+class FormDefinitionTestMixin(object):
+    class SimplePlayer(otree.db.models.Model):
+        name = otree.db.models.CharField(max_length=50)
+        age = otree.db.models.IntegerField(default=30)
+
+    def setUp(self):
+        with capture_stdout():
+            call_command('create_session', 'simple_game', 1)
+        self.player = Player.objects.first()
+
+    def get_template_nodes(self, source):
+        return Template('{% load otree_tags %}' + source)
 
 
-class TemplateFormDefinitionTest(TestCase):
+class TemplateFormDefinitionTest(FormDefinitionTestMixin, TestCase):
     def setUp(self):
         with capture_stdout():
             call_command('create_session', 'simple_game', 1)
@@ -35,7 +44,7 @@ class TemplateFormDefinitionTest(TestCase):
             {% endif %}
             ''')
 
-        instance = SimplePlayer.objects.create(name='Foo', age=20)
+        instance = self.SimplePlayer.objects.create(name='Foo', age=20)
         context = {
             'player': instance,
             'true_value': True
@@ -47,12 +56,12 @@ class TemplateFormDefinitionTest(TestCase):
         player_name, player_age = form_helper.get_field_identifiers()
         self.assertEqual(player_name.variable, 'player.name')
         self.assertEqual(player_age.variable, 'player.age')
-        self.assertEqual(form_helper.get_model_class(), SimplePlayer)
+        self.assertEqual(form_helper.get_model_class(), self.SimplePlayer)
         self.assertEqual(form_helper.get_model_instance(), instance)
 
         modelform = form_helper.get_form_class()
 
-        self.assertEqual(modelform._meta.model, SimplePlayer)
+        self.assertEqual(modelform._meta.model, self.SimplePlayer)
         self.assertEqual(len(modelform.base_fields), 2)
         self.assertEqual(modelform.base_fields.keys(), ['name', 'age'])
 
@@ -125,8 +134,8 @@ class TemplateFormDefinitionTest(TestCase):
         self.assertTrue('not_a_field' in str(cm.exception))
 
     def test_multiple_model_instances(self):
-        player1 = SimplePlayer()
-        player2 = SimplePlayer()
+        player1 = self.SimplePlayer()
+        player2 = self.SimplePlayer()
 
         template = self.get_template_nodes(
             '''

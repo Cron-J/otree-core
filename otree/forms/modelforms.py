@@ -62,6 +62,7 @@ class TemplateFormDefinition(object):
         self.context_data = context
         self._request = request
         self._current_app = current_app
+        self._bootstrap()
 
     def _bootstrap(self):
         self.template = self.resolve_template(self.template_names)
@@ -207,7 +208,6 @@ class TemplateFormDefinition(object):
         return otree.forms.ModelForm
 
     def get_form_class(self):
-        self._bootstrap()
         try:
             form_class = otree.forms.modelform_factory(
                 self.get_model_class(),
@@ -219,7 +219,8 @@ class TemplateFormDefinition(object):
             # message. That is a peculiar method, but I don't see another way
             # to get to the actual name without duplicating the
             # field-validation logic from Django's ModelFormMetaclass.
-            match = re.search('Unknown field\(s\) \(([^\)]+)\)', unicode(error))
+            match = re.search('Unknown field\(s\) \(([^\)]+)\)',
+                              unicode(error))
             field_name = match.groups()[0]
             identifier = self.get_identifier_by_field_name(field_name)
             instance = self.get_model_instance()
@@ -231,8 +232,20 @@ class TemplateFormDefinition(object):
                     field_name=field_name),
                 code='not_a_field',
                 node=identifier.node)
-
         return form_class
+
+    def get_form(self, *args, **kwargs):
+        instance = self.get_model_instance()
+        form_class = self.get_form_class()
+        kwargs.setdefault('instance', instance)
+        return form_class(*args, **kwargs)
+
+    def apply_to_context(self, context, form):
+        """Should be used by the view to put the form instance into the
+        context. By encapsulating this behaviour we are free to change the
+        variable name or other behaviour later."""
+        context['form'] = form
+        return context
 
 
 def get_modelform_from_template(template, context, request=None,
