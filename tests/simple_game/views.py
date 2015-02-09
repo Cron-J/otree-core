@@ -13,9 +13,6 @@ def vars_for_all_templates(self):
 
 class MyPage(Page):
 
-    form_model = models.Player
-    form_fields = ['add100_1', 'add100_2']
-
     timeout_seconds = 10
     auto_submit_values = {
         'add100_1': 1,

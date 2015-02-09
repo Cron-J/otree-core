@@ -69,3 +69,24 @@ class TestPageView(BaseViewTestCase):
 
         response = self.view(request, **self.kwargs)
         self.assertEqual(response.status_code, 200)
+
+    def test_contains_form_field(self):
+        request = self.factory.get(
+            '/{0}/{1}/shared/WaitUntilAssignedToGroup/0/'.format(
+                self.kwargs[constants.user_type],
+                self.kwargs[constants.session_user_code]))
+
+        self.player.add100_2 = 5
+        self.player.save()
+
+        response = self.view(request, **self.kwargs)
+        self.assertContains(
+            response, '''
+                <input type="number" name="add100_1" required id="id_add100_1"
+                 min="0" class="form-control">
+            ''', html=True)
+        self.assertContains(
+            response, '''
+                <input type="number" name="add100_2" required id="id_add100_2"
+                 min="0" class="form-control" value="5">
+            ''', html=True)

@@ -51,6 +51,7 @@ import otree.timeout.tasks
 import otree.models
 import otree.models.session as seq_models
 import otree.constants as constants
+from otree.forms.modelforms import TemplateFormDefinition
 from otree.models.session import Participant, GlobalSingleton
 from otree.models_concrete import (
     PageCompletion, WaitPageVisit, CompletedSubsessionWaitPage,
@@ -639,13 +640,37 @@ class FormPageMixin(object):
     model = otree.models.session.StubModel
     fields = []
 
+    def _init_templateformdefinition(self):
+        if not hasattr(self, '_templateformdefinition'):
+            self._templateformdefinition = TemplateFormDefinition(
+                self.get_template_names(),
+                self.get_context_data(),
+                self.request)
+
+    def get_form_model(self):
+        if self.form_model is otree.models.session.StubModel:
+            self._init_templateformdefinition()
+            return self._templateformdefinition.get_model_class()
+        else:
+            return self.form_model
+
+    def get_form_fields(self):
+        if self.form_fields:
+            self._init_templateformdefinition()
+            return self._templateformdefinition.get_form_fields()
+        else:
+            return self.form_fields
+
     def get_form_class(self):
-        form_class = otree.forms.modelform_factory(
-            self.form_model, fields=self.form_fields,
-            form=otree.forms.ModelForm,
-            formfield_callback=otree.forms.formfield_callback
-        )
-        return form_class
+        if self.form_model and self.form_fields:
+            return otree.forms.modelform_factory(
+                self.get_form_model(), fields=self.get_form_fields(),
+                form=otree.forms.ModelForm,
+                formfield_callback=otree.forms.formfield_callback
+            )
+        else:
+            self._init_templateformdefinition()
+            return self._templateformdefinition.get_form_class()
 
     def after_next_button(self):
         pass
@@ -653,7 +678,6 @@ class FormPageMixin(object):
     def get_context_data(self, **kwargs):
         context = super(FormPageMixin, self).get_context_data(**kwargs)
         context.update({
-            'form': kwargs.get('form'),
             'player': self.player,
             'group': self.group,
             'subsession': self.subsession,
@@ -723,12 +747,12 @@ class FormPageMixin(object):
     poll_interval_seconds = constants.form_page_poll_interval_seconds
 
     def _set_auto_submit_values(self):
-        for field_name in self.form_fields:
+        for field_name in self.get_form_fields():
             if field_name in self.auto_submit_values:
                 value = self.auto_submit_values[field_name]
             else:
                 # get default value for datatype if the user didn't specify
-                ModelField = self.form_model._meta.get_field_by_name(
+                ModelField = self.get_form_model()._meta.get_field_by_name(
                     field_name
                 )[0]
                 value = ModelField.auto_submit_default
@@ -744,7 +768,7 @@ class PlayerUpdateView(FormPageMixin, FormPageOrWaitPageMixin,
                        PlayerMixin, vanilla.UpdateView):
 
     def get_object(self):
-        Cls = self.form_model
+        Cls = self.get_form_model()
         if Cls == self.GroupClass:
             return self.group
         elif Cls == self.PlayerClass:
@@ -760,7 +784,7 @@ class ExperimenterUpdateView(FormPageMixin, FormPageOrWaitPageMixin,
     # form_class = ExperimenterStubModelForm
 
     def get_object(self):
-        Cls = self.form_model
+        Cls = self.get_form_model()
         if Cls == self.SubsessionClass:
             return self.subsession
         elif Cls == seq_models.StubModel:
