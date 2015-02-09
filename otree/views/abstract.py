@@ -51,6 +51,7 @@ import otree.timeout.tasks
 import otree.models
 import otree.models.session as seq_models
 import otree.constants as constants
+from otree.forms.modelforms import NoFormDefinitionFound
 from otree.forms.modelforms import TemplateFormDefinition
 from otree.models.session import Participant, GlobalSingleton
 from otree.models_concrete import (
@@ -637,40 +638,58 @@ class FormPageMixin(object):
     """
 
     # if a model is not specified, use empty "StubModel"
-    model = otree.models.session.StubModel
-    fields = []
+    model = None
+    fields = None
+
+    form_model = None
+    form_fields = None
 
     def _init_templateformdefinition(self):
         if not hasattr(self, '_templateformdefinition'):
-            self._templateformdefinition = TemplateFormDefinition(
-                self.get_template_names(),
-                self.get_context_data(),
-                self.request)
+            try:
+                self._templateformdefinition = TemplateFormDefinition(
+                    self.get_template_names(),
+                    self.get_context_data(),
+                    self.request)
+            except NoFormDefinitionFound:
+                self._templateformdefinition = None
+
+    def get_model_class(self):
+        if self.model is None:
+            return otree.models.session.StubModel
+        return self.model
+
+    def get_model_fields(self):
+        return self.fields or []
 
     def get_form_model(self):
-        if self.form_model is otree.models.session.StubModel:
+        if self.form_model is None:
             self._init_templateformdefinition()
-            return self._templateformdefinition.get_model_class()
-        else:
-            return self.form_model
+            if self._templateformdefinition:
+                return self._templateformdefinition.get_model_class()
+            else:
+                return otree.models.session.StubModel
+        return self.form_model
 
     def get_form_fields(self):
-        if self.form_fields:
+        if self.form_fields is None:
             self._init_templateformdefinition()
-            return self._templateformdefinition.get_form_fields()
-        else:
-            return self.form_fields
+            if self._templateformdefinition:
+                return self._templateformdefinition.get_form_fields()
+            else:
+                return []
+        return self.form_fields
 
     def get_form_class(self):
-        if self.form_model and self.form_fields:
-            return otree.forms.modelform_factory(
-                self.get_form_model(), fields=self.get_form_fields(),
-                form=otree.forms.ModelForm,
-                formfield_callback=otree.forms.formfield_callback
-            )
-        else:
-            self._init_templateformdefinition()
+        self._init_templateformdefinition()
+        if self._templateformdefinition:
             return self._templateformdefinition.get_form_class()
+        return otree.forms.modelform_factory(
+            model=self.get_form_model(),
+            fields=self.get_form_fields(),
+            form=otree.forms.ModelForm,
+            formfield_callback=otree.forms.formfield_callback
+        )
 
     def after_next_button(self):
         pass
