@@ -2,7 +2,7 @@
 # encoding: utf-8
 
 from rest_framework import serializers
-from otree.models.session import Participant
+from otree.models.session import (Participant, Session)
 
 
 class ParticipantSerializer(serializers.ModelSerializer):
@@ -20,3 +20,14 @@ class ParticipantSerializer(serializers.ModelSerializer):
             'last_request_succeeded',
             '_last_page_timestamp',
         ]
+
+class SessionTypeSerializer(serializers.Serializer):
+    """docstring for SessionTypeSeriazlizer"""
+    name = serializers.CharField(max_length=255)
+    display_name = serializers.CharField(max_length=255)
+    num_demo_participants = serializers.IntegerField()
+
+class SessionSerializer(serializers.ModelSerializer):
+    class Meta(object):
+        model = Session
+        lookup_field = 'code'
