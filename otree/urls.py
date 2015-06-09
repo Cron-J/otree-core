@@ -10,7 +10,7 @@ from django.contrib.staticfiles.urls import staticfiles_urlpatterns
 from django.views.generic.base import RedirectView
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
-from otree.views.rest import (SessionParticipantsList, SessionTypesList, SessionsView)
+from otree.views.rest import (SessionParticipantsList, SessionTypesList, SessionsView, SessionResultsView)
 #, SessionList)
 
 from otree.common_internal import get_models_module
@@ -136,6 +136,11 @@ def augment_urlpatterns(urlpatterns):
             r'^sessions/$',
             SessionsView.as_view(),
             name="sessions_view",
+        ),
+        urls.url(
+            r'^sessionresults/$',
+            SessionResultsView.as_view(),
+            name="sessionsresults_view",
         )
     )
     urlpatterns += rest_api_urlpatterns
