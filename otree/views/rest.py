@@ -41,13 +41,13 @@ class SessionsView(APIView):
         return Response(sessions, status=status.HTTP_200_OK)
 
     def post(self, request, format=None):
-        # try:
+        try:
             data = self.request.DATA
             session = create_session(session_type_name=data['session_type_name'], label=data['label'] or '',num_participants=data['num_participants'])
             return Response(session.code, status=status.HTTP_200_OK)
             # return Response(getSerializableObject(session, False), status=status.HTTP_200_OK)#Get entire session object
-        # except Exception as e:
-        #     return Response(e.message, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        except Exception as e:
+            return Response(e.message, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class SessionResultsView(APIView):
     def get(self, request, format=None):
