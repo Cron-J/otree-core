@@ -26,8 +26,3 @@ class SessionTypeSerializer(serializers.Serializer):
     name = serializers.CharField(max_length=255)
     display_name = serializers.CharField(max_length=255)
     num_demo_participants = serializers.IntegerField()
-
-class SessionSerializer(serializers.ModelSerializer):
-    class Meta(object):
-        model = Session
-        lookup_field = 'code'
