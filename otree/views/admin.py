@@ -535,12 +535,7 @@ class SessionPayments(AdminSessionPageMixin, vanilla.TemplateView):
         else:
             response = super(SessionPayments, self).get(*args, **kwargs)
             return response
-            # return self.render_to_response(context)
-
-    # def get(self, *args, **kwargs):
-    #     response = super(SessionPayments, self).get(*args, **kwargs)
-    #     return response
-
+            
     def get_context_data(self, **kwargs):
 
         session = self.session
