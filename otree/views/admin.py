@@ -36,6 +36,14 @@ import otree.models.session
 from otree.common import Currency as c
 from otree.models.session import Session, Participant
 
+from django.core import serializers 
+import json
+
+
+def getSerializableObject(obj, isList = False):
+    data = serializers.serialize('json', (obj if isList else [obj,]))
+    struct = json.loads(data)
+    return struct if isList else struct[0]
 
 def get_all_fields(Model, for_export=False):
 
@@ -521,8 +529,17 @@ class SessionPayments(AdminSessionPageMixin, vanilla.TemplateView):
             return 'otree/admin/SessionPayments.html'
 
     def get(self, *args, **kwargs):
-        response = super(SessionPayments, self).get(*args, **kwargs)
-        return response
+        context = self.get_context_data()
+        if self.request.META.get('CONTENT_TYPE') == 'application/json':
+            return JsonResponse(self.context_json, safe=False)
+        else:
+            response = super(SessionPayments, self).get(*args, **kwargs)
+            return response
+            # return self.render_to_response(context)
+
+    # def get(self, *args, **kwargs):
+    #     response = super(SessionPayments, self).get(*args, **kwargs)
+    #     return response
 
     def get_context_data(self, **kwargs):
 
@@ -540,6 +557,14 @@ class SessionPayments(AdminSessionPageMixin, vanilla.TemplateView):
                 part.money_to_pay() or c(0) for part in participants
             )
             mean_payment = total_payments / len(participants)
+        # dictionary for json response
+        # will be used only if json request  is done
+        self.context_json = {
+            'participants': getSerializableObject(participants, True),
+            'total_payments': total_payments,
+            'mean_payment': mean_payment,
+            'participation_fee': session.participation_fee,
+        }
 
         context = super(SessionPayments, self).get_context_data(**kwargs)
         context.update({
