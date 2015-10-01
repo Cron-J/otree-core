@@ -1,13 +1,13 @@
 from django.core.management import call_command
-from django.test import TestCase
 from django.test.client import RequestFactory
 
-from otree import constants
-from otree.models.session import Participant, SessionExperimenter
+from otree import constants_internal
+from otree.models.session import Participant
 
 from tests.simple_game.views import MyPage
 from tests.simple_game.models import Player
 from tests.utils import capture_stdout
+from .base import TestCase
 
 
 class Attribute(object):
@@ -34,16 +34,12 @@ class BaseViewTestCase(TestCase):
         self.request = self.factory.get('/my-page/')
 
         with capture_stdout():
-            call_command('create_session', 'simple_game', 1)
+            call_command('create_session', 'simple_game', "1")
 
-        self.session_experimenter = SessionExperimenter.objects.first()
         self.participant = Participant.objects.first()
         self.player = Player.objects.first()
 
     def reload_objects(self):
-        self.session_experimenter = SessionExperimenter.objects.get(
-            pk=self.session_experimenter.pk
-        )
         self.participant = Participant.objects.get(pk=self.participant.pk)
         self.player = Player.objects.get(pk=self.player.pk)
 
@@ -53,9 +49,9 @@ class TestPageView(BaseViewTestCase):
         super(TestPageView, self).setUp()
 
         self.kwargs = {
-            constants.session_user_code: self.participant.code,
-            constants.user_type: 'p',
-            constants.index_in_pages: 0,
+            constants_internal.session_user_code: self.participant.code,
+            constants_internal.user_type: 'p',
+            constants_internal.index_in_pages: 0,
         }
         self.view = MyPage.as_view()
 
@@ -64,8 +60,8 @@ class TestPageView(BaseViewTestCase):
     def test_status_ok(self):
         request = self.factory.get(
             '/{0}/{1}/shared/WaitUntilAssignedToGroup/0/'.format(
-                self.kwargs[constants.user_type],
-                self.kwargs[constants.session_user_code]))
+                self.kwargs[constants_internal.user_type],
+                self.kwargs[constants_internal.session_user_code]))
 
         response = self.view(request, **self.kwargs)
         self.assertEqual(response.status_code, 200)

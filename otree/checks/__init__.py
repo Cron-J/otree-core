@@ -1,12 +1,15 @@
 import os
+import glob
 import types
 from importlib import import_module
 from functools import wraps
+import inspect
 
 from django.apps import apps
 from django.conf import settings
 from django.core.checks import register, Error
 from django.template import Template
+from django.template import TemplateSyntaxError
 
 import otree.views.abstract
 
@@ -63,6 +66,10 @@ class Rules(object):
     def get_path(self, name):
         return os.path.join(self.config.path, name)
 
+    def get_rel_path(self, name):
+        basepath = os.getcwd()
+        return os.path.relpath(name, basepath)
+
     def get_module(self, name):
         return import_module(self.config.name + '.' + name)
 
@@ -70,6 +77,14 @@ class Rules(object):
         if not isinstance(module, types.ModuleType):
             module = self.get_module(module)
         return getattr(module, name)
+
+    def get_template_names(self):
+        path = self.get_path('templates')
+        template_names = []
+        for root, dirs, files in os.walk(path):
+            for filename in filter(lambda f: f.endswith('.html'), files):
+                template_names.append(os.path.join(root, filename))
+        return template_names
 
     # Rule methods
 
@@ -101,19 +116,53 @@ class Rules(object):
     @rule
     def class_exists(self, module, name):
         module = self.get_module(module)
-        if isinstance(getattr(module, name, None), type):
+        cls = getattr(module, name, None)
+        if not inspect.isclass(cls):
             msg = 'No class "%s" in module "%s"' % (name, module.__name__)
             return self.error(msg)
 
     @rule
+    def template_has_valid_syntax(self, template_name):
+        from otree.checks.templates import has_valid_encoding
+        from otree.checks.templates import format_source_snippet
+
+        # Only test files that are valid templates.
+        if not has_valid_encoding(template_name):
+            return
+
+        try:
+            with open(template_name, 'r') as f:
+                Template(f.read())
+        except (IOError, OSError):
+            pass
+        except TemplateSyntaxError as error:
+            template_source, position = error.django_template_source
+            snippet = format_source_snippet(
+                template_source.source,
+                arrow_position=position[0])
+            return self.error(
+                'Template syntax error in {template}\n'
+                '\n'
+                '{snippet}\n'
+                '\n'
+                'Error: {error}'.format(
+                    template=template_name,
+                    error=error,
+                    snippet=snippet))
+
+    @rule
     def template_has_no_dead_code(self, template_name):
         from otree.checks.templates import get_unreachable_content
+        from otree.checks.templates import has_valid_encoding
 
-        template_path = self.get_path(template_name)
+        # Only test files that are valid templates.
+        if not has_valid_encoding(template_name):
+            return
+
         try:
-            with open(template_path, 'r') as f:
+            with open(template_name, 'r') as f:
                 compiled_template = Template(f.read())
-        except (IOError, OSError):
+        except (IOError, OSError, TemplateSyntaxError):
             # Ignore errors that occured during file-read or compilation.
             return
 
@@ -132,7 +181,19 @@ class Rules(object):
                 'Template contains the following text outside of a '
                 '{% block %}. This text will never be displayed.'
                 '\n\n' + content_bits,
-                obj=os.path.join(self.config.label, template_name))
+                obj=os.path.join(self.config.label,
+                                 self.get_rel_path(template_name)))
+
+    @rule
+    def template_has_valid_encoding(self, template_name):
+        from otree.checks.templates import has_valid_encoding
+
+        if not has_valid_encoding(template_name):
+            return self.error(
+                'The template {template} is not UTF-8 encoded. '
+                'Please configure your text editor to always save files '
+                'as UTF-8. Then open the file and save it again.'
+                .format(template=self.get_rel_path(template_name)))
 
 
 def _get_all_configs():
@@ -176,7 +237,9 @@ def files(rules, **kwargs):
     )
     if cond:
         # check for files in templates, but not in templates/<label>
-        misplaced_templates = set(os.listdir(rules.get_path('templates')))
+        misplaced_templates = set(glob.glob(
+            os.path.join(rules.get_path('templates'), '*.html')
+        ))
         misplaced_templates.discard(rules.config.label)
         if misplaced_templates:
             hint = 'Move template files to "templates/%s"' % rules.config.label
@@ -209,7 +272,7 @@ def constants(rules, **kwargs):
         if getattr(Constants, 'players_per_group', None) == 1:
             rules.push_error(
                 "models.py: 'Constants.players_per_group' cannot be 1. You "
-                "should set it to None, which makes the group"
+                "should set it to None, which makes the group "
                 "all players in the subsession."
             )
 
@@ -235,14 +298,9 @@ def pages_function(rules, **kwargs):
 
 
 @register_rules(id='otree.E005')
-def templates(rules, **kwargs):
-    basepath = rules.config.path
-    path = rules.get_path('templates')
-    for root, dirs, files in os.walk(path):
-        for filename in files:
-            template_path = os.path.join(root, filename)
-            template_name = os.path.relpath(template_path, basepath)
-            rules.template_has_no_dead_code(template_name)
+def templates_have_no_dead_code(rules, **kwargs):
+    for template_name in rules.get_template_names():
+        rules.template_has_no_dead_code(template_name)
 
 
 @register_rules(id='otree.E006')
@@ -250,13 +308,25 @@ def unique_sessions_names(rules, **kwargs):
     if "unique_session_names_already_run" not in rules.common_buffer:
         rules.common_buffer["unique_session_names_already_run"] = True
         buff = set()
-        for st in settings.SESSION_TYPES:
+        for st in settings.SESSION_CONFIGS:
             st_name = st["name"]
             if st_name in buff:
-                msg = "Duplicate SESSION_TYPE name '{}'".format(st_name)
+                msg = "Duplicate SESSION_CONFIG name '{}'".format(st_name)
                 rules.push_error(msg)
             else:
                 buff.add(st_name)
+
+
+@register_rules(id='otree.E007')
+def template_encoding(rules, **kwargs):
+    for template_name in rules.get_template_names():
+        rules.template_has_valid_encoding(template_name)
+
+
+@register_rules(id='otree.E008')
+def templates_have_valid_syntax(rules, **kwargs):
+    for template_name in rules.get_template_names():
+        rules.template_has_valid_syntax(template_name)
 
 
 # TODO: startapp should pass validation checks

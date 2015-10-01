@@ -3,17 +3,14 @@ import itertools
 import time
 
 import django.test
-from django.db import transaction
-from django.conf import settings
 
-from otree import constants
+from otree import constants_internal
 import otree.common_internal
 from otree.common_internal import id_label_name
 
 from otree.common import Currency as c
 from otree.db import models
 from otree.models_concrete import SessionuserToUserLookup
-import contextlib
 
 
 class GlobalSingleton(models.Model):
@@ -21,7 +18,8 @@ class GlobalSingleton(models.Model):
     GlobalSingleton object. Also used for wait page actions.
     """
 
-    # TODO: move to otree.models_concrete
+    class Meta:
+        app_label = "otree"
 
     default_session = models.ForeignKey('Session', null=True, blank=True)
     admin_access_code = models.RandomCharField(
@@ -29,40 +27,9 @@ class GlobalSingleton(models.Model):
                        'admin/experimenter should access')
     )
 
-    class Meta:
-        verbose_name = 'Set default session'
-        verbose_name_plural = verbose_name
-
-
-@contextlib.contextmanager
-def no_op_context_manager():
-    yield
-
-
-@contextlib.contextmanager
-def lock_on_this_code_path():
-    if settings.DATABASES['default']['ENGINE'].endswith('sqlite3'):
-        yield
-    else:
-        with transaction.atomic():
-            # take a lock on this singleton, so that only 1 person can
-            # be completing this code path at once
-            GlobalSingleton.objects.select_for_update().get()
-            yield
-
-
-class StubModel(models.Model):
-    """To be used as the model for an empty form, so that form_class can be
-    omitted. Consider using SingletonModel for this. Right now, I'm not
-    sure we need it.
-
-    """
-
-    # TODO: move to otree.models_concrete
-
 
 class ModelWithVars(models.Model):
-    vars = models.PickleField(default=lambda: {})
+    vars = models.JSONField(default=dict)
 
     class Meta:
         abstract = True
@@ -72,103 +39,89 @@ class ModelWithVars(models.Model):
         self._old_vars = copy.deepcopy(self.vars)
 
     def save(self, *args, **kwargs):
-        # Trick save_the_change to update vars
+        # Trick otree_save_the_change to update vars
         if hasattr(self, '_changed_fields') and self.vars != self._old_vars:
             self._changed_fields['vars'] = self._old_vars
         super(ModelWithVars, self).save(*args, **kwargs)
 
 
+# for now removing SaveTheChange
 class Session(ModelWithVars):
 
     class Meta:
         # if i don't set this, it could be in an unpredictable order
         ordering = ['pk']
+        app_label = "otree"
 
-    session_type = models.PickleField(
-        default=lambda: {},
-        null=True,
-        doc="the session type, as defined in the programmer's settings.py.",
-    )
+    config = models.JSONField(
+        default=dict, null=True,
+        doc=("the session config dict, as defined in the "
+             "programmer's settings.py."))
 
     # label of this session instance
     label = models.CharField(
         max_length=300, null=True, blank=True,
-        help_text='For internal record-keeping'
-    )
+        help_text='For internal record-keeping')
 
     experimenter_name = models.CharField(
         max_length=300, null=True, blank=True,
-        help_text='For internal record-keeping'
-    )
+        help_text='For internal record-keeping')
 
     code = models.RandomCharField(
-        length=8, doc="Randomly generated unique identifier for the session."
-    )
-
-    real_world_currency_per_point = models.DecimalField(
-        decimal_places=5, max_digits=12
-    )
-
-    session_experimenter = models.OneToOneField(
-        'SessionExperimenter', null=True, related_name='session',
-    )
+        length=8, doc="Randomly generated unique identifier for the session.")
 
     time_scheduled = models.DateTimeField(
         null=True, doc="The time at which the session is scheduled",
-        help_text='For internal record-keeping',
-        blank=True,
-    )
+        help_text='For internal record-keeping', blank=True)
 
     time_started = models.DateTimeField(
         null=True,
-        doc="The time at which the experimenter started the session",
-    )
+        doc="The time at which the experimenter started the session")
 
     mturk_HITId = models.CharField(
         max_length=300, null=True, blank=True,
-        help_text='Hit id for this session on MTurk',
-    )
+        help_text='Hit id for this session on MTurk')
     mturk_HITGroupId = models.CharField(
         max_length=300, null=True, blank=True,
-        help_text='Hit id for this session on MTurk',
-    )
+        help_text='Hit id for this session on MTurk')
+    mturk_qualification_type_id = models.CharField(
+        max_length=300, null=True, blank=True,
+        help_text='Qualification type that is '
+                  'assigned to each worker taking hit')
 
-    mturk_sandbox = models.BooleanField(default=False,
-                                        help_text="""
-                                        Should this session be
-                                        created in mturk sandbox?
-                                        """)
+    # since workers can drop out number of participants on server should be
+    # greater than number of participants on mturk
+    # value -1 indicates that this session it not intended to run on mturk
+    mturk_num_participants = models.IntegerField(
+        default=-1,
+        help_text="Number of participants on MTurk")
+
+    mturk_sandbox = models.BooleanField(
+        default=True,
+        help_text="Should this session be created in mturk sandbox?")
 
     archived = models.BooleanField(
-        default=False, doc=(
-            "If set to True the session won't be visible on the "
-            "main ViewList for sessions")
-    )
+        default=False,
+        doc=("If set to True the session won't be visible on the "
+             "main ViewList for sessions"))
 
     git_commit_timestamp = models.CharField(
-        max_length=200, null=True, doc=(
+        max_length=200, null=True,
+        doc=(
             "Indicates the version of the code (as recorded by Git) that was "
             "used to run the session, so that the session can be replicated "
             "later.\n Search through the Git commit log to find a commit that "
-            "was made at this time."
-        )
-    )
-
-    # todo: change this to money
-    participation_fee = models.RealWorldCurrencyField(doc="""Show-up fee""")
+            "was made at this time."))
 
     comment = models.TextField(blank=True)
 
     _ready_to_play = models.BooleanField(default=False)
 
-    _anonymous_code = models.RandomCharField(
-        length=10
-    )
+    _anonymous_code = models.RandomCharField(length=10)
 
     special_category = models.CharField(
         max_length=20, null=True,
-        doc="whether it's a test session, demo session, etc."
-    )
+        doc="whether it's a test session, demo session, etc.")
 
     # whether someone already viewed this session's demo links
     demo_already_used = models.BooleanField(default=False)
@@ -182,8 +135,35 @@ class Session(ModelWithVars):
     def __unicode__(self):
         return self.code
 
+    @property
+    def participation_fee(self):
+        '''This method is deprecated from public API,
+        but still useful internally (like data export)'''
+        return self.config['participation_fee']
+
+    @property
+    def real_world_currency_per_point(self):
+        '''This method is deprecated from public API,
+        but still useful internally (like data export)'''
+        return self.config['real_world_currency_per_point']
+
+    @property
+    def session_type(self):
+        '''2015-07-10: session_type is deprecated
+        this shim method will be removed eventually'''
+        return self.config
+
     def is_open(self):
         return GlobalSingleton.objects.get().default_session == self
+
+    def is_for_mturk(self):
+        return (not self.is_demo()) and (self.mturk_num_participants > 0)
+
+    def is_demo(self):
+        return (
+            self.special_category ==
+            constants_internal.session_special_category_demo
+        )
 
     def subsession_names(self):
         names = []
@@ -201,7 +181,7 @@ class Session(ModelWithVars):
 
     def get_subsessions(self):
         lst = []
-        app_sequence = self.session_type['app_sequence']
+        app_sequence = self.config['app_sequence']
         for app in app_sequence:
             models_module = otree.common_internal.get_models_module(app)
             subsessions = models_module.Subsession.objects.filter(
@@ -243,7 +223,7 @@ class Session(ModelWithVars):
         # previous round's groups
         for subsession in self.get_subsessions():
             cond = (
-                self.session_type['group_by_arrival_time'] and
+                self.config.get('group_by_arrival_time') and
                 subsession._Constants.players_per_group is not None
             )
             if cond:
@@ -255,6 +235,7 @@ class Session(ModelWithVars):
             subsession._initialize()
             subsession.save()
         self._ready_to_play = True
+        # assert self is subsession.session
         self.save()
 
     def mturk_requester_url(self):
@@ -303,12 +284,12 @@ class Session(ModelWithVars):
             # what if current_form_page_url hasn't been set yet?
             resp = c.post(
                 p._current_form_page_url,
-                data={constants.auto_submit: True}, follow=True
+                data={constants_internal.auto_submit: True}, follow=True
             )
             assert resp.status_code < 400
 
     def build_session_user_to_user_lookups(self):
-        subsession_app_names = self.session_type['app_sequence']
+        subsession_app_names = self.config['app_sequence']
 
         num_pages_in_each_app = {}
         for app_name in subsession_app_names:
@@ -322,9 +303,8 @@ class Session(ModelWithVars):
                 num_pages_in_each_app
             )
 
-        # FIXME: what about experimenter?
 
-
+# for now removing SaveTheChange
 class SessionUser(ModelWithVars):
 
     _index_in_subsessions = models.PositiveIntegerField(default=0, null=True)
@@ -382,7 +362,7 @@ class SessionUser(ModelWithVars):
 
     _max_page_index = models.PositiveIntegerField()
 
-    def _pages_completed(self):
+    def _current_page(self):
         return '{}/{} pages'.format(
             self._index_in_pages, self._max_page_index
         )
@@ -390,7 +370,7 @@ class SessionUser(ModelWithVars):
     def get_users(self):
         """Used to calculate payoffs"""
         lst = []
-        app_sequence = self.session.session_type['app_sequence']
+        app_sequence = self.session.config['app_sequence']
         for app in app_sequence:
             models_module = otree.common_internal.get_models_module(app)
             players = models_module.Player.objects.filter(
@@ -405,8 +385,8 @@ class SessionUser(ModelWithVars):
 
         # check if they are disconnected
         max_seconds_since_last_request = max(
-            constants.form_page_poll_interval_seconds,
-            constants.wait_page_poll_interval_seconds,
+            constants_internal.form_page_poll_interval_seconds,
+            constants_internal.wait_page_poll_interval_seconds,
         ) + 10  # for latency
         if self._last_request_timestamp is None:
             # it shouldn't be None, but sometimes is...race condition?
@@ -447,7 +427,7 @@ class SessionUser(ModelWithVars):
         else:
             if self.session.mturk_HITId:
                 assignment_id = self.mturk_assignment_id
-                if settings.DEBUG:
+                if self.session.mturk_sandbox:
                     url = (
                         'https://workersandbox.mturk.com/mturk/externalSubmit'
                     )
@@ -477,7 +457,6 @@ class SessionUser(ModelWithVars):
                 page_index=page_index,
                 app_name=user._meta.app_config.name,
                 user_pk=user.pk,
-                is_experimenter=self._is_experimenter,
             )
             for user in self.get_users()
             for _, page_index in zip(range(pages_for_user(user) + 1), indexes)
@@ -491,26 +470,11 @@ class SessionUser(ModelWithVars):
         abstract = True
 
 
-class SessionExperimenter(SessionUser):
-
-    _is_experimenter = True
-
-    def _start_url(self):
-        # 2015-1-31: doesn't work
-        return '/InitializeSessionExperimenter/{}/'.format(self.code)
-
-    def experimenters(self):
-        return self.get_users()
-
-    user_type_in_url = constants.user_type_experimenter
-
-
 class Participant(SessionUser):
-
-    _is_experimenter = False
 
     class Meta:
         ordering = ['pk']
+        app_label = "otree"
 
     exclude_from_data_analysis = models.BooleanField(
         default=False, doc=(
@@ -522,11 +486,13 @@ class Participant(SessionUser):
 
     session = models.ForeignKey(Session)
     time_started = models.DateTimeField(null=True)
-    user_type_in_url = constants.user_type_participant
+    user_type_in_url = constants_internal.user_type_participant
     mturk_assignment_id = models.CharField(max_length=50, null=True)
     mturk_worker_id = models.CharField(max_length=50, null=True)
     mturk_reward_paid = models.BooleanField(default=False)
     mturk_bonus_paid = models.BooleanField(default=False)
+
+    start_order = models.PositiveIntegerField()
 
     # unique=True can't be set, because the same external ID could be reused
     # in multiple sequences. however, it should be unique within the sequence.
@@ -564,7 +530,7 @@ class Participant(SessionUser):
 
     def money_to_pay(self):
         return (
-            self.session.participation_fee +
+            self.session.config['participation_fee'] +
             self.payoff.to_real_world_currency(self.session)
         )
 

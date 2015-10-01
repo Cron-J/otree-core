@@ -6,21 +6,41 @@ import string
 
 from django.db import models
 from django.db.models.fields import related
-from django.db.models.base import ModelBase
 from django.core import exceptions
 from django.utils.translation import ugettext_lazy
+from django.apps import apps
 
-from handy.models import PickleField
+from handy.models import JSONField, PickleField
+
 import easymoney
 
+from idmap.metaclass import SharedMemoryModelBase
+from idmap.models import SharedMemoryModel
+
 import otree.common
-from otree.common_internal import expand_choice_tuples
+from otree.common_internal import (
+    expand_choice_tuples, get_app_label_from_import_path
+)
+from otree.constants_internal import field_required_msg
 
 
-class OTreeModelBase(ModelBase):
+class OTreeModelBase(SharedMemoryModelBase):
+
     def __new__(cls, name, bases, attrs):
-        new_class = super(OTreeModelBase, cls).__new__(cls, name, bases, attrs)
+        meta = attrs.get("Meta")
+        module = attrs.get("__module__")
+        is_concrete = not getattr(meta, "abstract", False)
+        app_label = getattr(meta, "app_label", "")
 
+        if is_concrete and module and not app_label:
+            if meta is None:
+                meta = type("Meta", (), {})
+            app_label = get_app_label_from_import_path(module)
+            meta.app_label = app_label
+            meta.db_table = "{}_{}".format(app_label, name.lower())
+            attrs["Meta"] = meta
+
+        new_class = super(OTreeModelBase, cls).__new__(cls, name, bases, attrs)
         for f in new_class._meta.fields:
             if hasattr(new_class, f.name + '_choices'):
                 attr_name = 'get_%s_display' % f.name
@@ -30,7 +50,7 @@ class OTreeModelBase(ModelBase):
 
 
 def get_model(*args, **kwargs):
-    return models.get_model(*args, **kwargs)
+    return apps.get_model(*args, **kwargs)
 
 
 def make_get_display(field):
@@ -41,11 +61,12 @@ def make_get_display(field):
     return get_FIELD_display
 
 
-class OTreeModel(models.Model):
+class OTreeModel(SharedMemoryModel):
     __metaclass__ = OTreeModelBase
 
     class Meta:
         abstract = True
+
 Model = OTreeModel
 
 
@@ -104,9 +125,9 @@ class _OtreeWidgetForModelFieldMixin(object):
 
 class _OtreeNullableModelFieldMixin(_OtreeModelFieldMixin,
                                     _OtreeWidgetForModelFieldMixin):
+
     def __init__(self, *args,  **kwargs):
         kwargs.setdefault('null', True)
-
         super(_OtreeNullableModelFieldMixin, self).__init__(*args, **kwargs)
 
 
@@ -115,6 +136,7 @@ class _OtreeNotNullableModelFieldMixin(_OtreeModelFieldMixin):
 
 
 class _OtreeNumericFieldMixin(object):
+
     def __init__(self, *args, **kwargs):
         self.min = kwargs.pop('min', None)
         self.max = kwargs.pop('max', None)
@@ -210,6 +232,10 @@ class PickleField(_OtreeNullableModelFieldMixin, PickleField):
     pass
 
 
+class JSONField(_OtreeNullableModelFieldMixin, JSONField):
+    pass
+
+
 class BooleanField(_OtreeNullableModelFieldMixin, models.NullBooleanField):
     # 2014/3/28: i just define the allowable choices on the model field,
     # instead of customizing the widget since then it works for any widget
@@ -230,7 +256,7 @@ class BooleanField(_OtreeNullableModelFieldMixin, models.NullBooleanField):
 
     def clean(self, value, model_instance):
         if value is None and not self.allow_blank:
-            raise exceptions.ValidationError("This field is required")
+            raise exceptions.ValidationError(field_required_msg)
         return super(BooleanField, self).clean(value, model_instance)
 
     def formfield(self, *args, **kwargs):
@@ -302,10 +328,6 @@ class IntegerField(_OtreeNullableModelFieldMixin,
     pass
 
 
-class IPAddressField(_OtreeNullableModelFieldMixin, models.IPAddressField):
-    pass
-
-
 class GenericIPAddressField(_OtreeNullableModelFieldMixin,
                             models.GenericIPAddressField):
     pass
@@ -352,7 +374,7 @@ class ManyToOneRel(related.ManyToOneRel):
     pass
 
 
-class ManyToManyField(_OtreeNullableModelFieldMixin, models.ManyToManyField):
+class ManyToManyField(models.ManyToManyField):
     pass
 
 

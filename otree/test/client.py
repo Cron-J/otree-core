@@ -14,20 +14,17 @@
 # =============================================================================
 
 import re
-import importlib
 import urlparse
 import decimal
 import logging
 import abc
+from importlib import import_module
 
 from django import test
 
 from easymoney import Money as Currency
 
-from otree import constants
-from otree.models.user import Experimenter
-from otree.views.concrete import WaitUntilAssignedToGroup
-from otree.common_internal import get_views_module
+from otree import constants_internal
 
 # =============================================================================
 # LOGGER
@@ -36,9 +33,13 @@ from otree.common_internal import get_views_module
 logger = logging.getLogger(__name__)
 
 
+def refresh_from_db(obj):
+    return type(obj).objects.get(pk=obj.pk)
+
 # =============================================================================
 # CLIENT ERROR
 # =============================================================================
+
 
 class ClientError(Exception):
     """This class represent all errors inside client logic except
@@ -99,63 +100,75 @@ class Submit(object):
 
         """
         end = self.execute_core()
+        if not end:
+            # don't need to check if it has errors because
+            # nothing was submitted
+            return False
+
         has_errors = self.bot.page_redisplayed_with_errors()
 
         if self.input_is_valid and has_errors:
             form = self.bot.response.context_data['form']
             errors = [
-                "{}: {}".format(k, repr(v)) for k, v in form.errors.items()
-            ]
+                "{}: {}".format(k, repr(v)) for k, v in form.errors.items()]
             msg = ('Input was rejected.\nPath: {}\nErrors: {}\n').format(
-                self.bot.path, errors
-            )
+                self.bot.path, errors)
             raise AssertionError(msg)
         elif not self.input_is_valid and not has_errors:
             msg = "Invalid input was accepted. Path: {}, params: {}".format(
-                self.bot.path, self.data
-            )
+                self.bot.path, self.data)
             raise AssertionError(msg)
-        return end
+        return True
 
 
 # =============================================================================
 # BASE CLIENT
 # =============================================================================
 
-class BaseClient(test.Client):
+class ParticipantBot(test.Client):
 
     __metaclass__ = abc.ABCMeta
 
-    def __init__(self, **kwargs):
+    def __init__(self, participant, **kwargs):
+        self.participant = participant
         self.response = None
         self.url = None
         self.path = None
-        self.num_bots = self.subsession.session.session_type['num_bots']
+        self.num_bots = self.participant.session.config['num_bots']
         self.submits = []
-        super(BaseClient, self).__init__()
+        super(ParticipantBot, self).__init__()
+
+        self.player_bots = []
+        for player in self.participant.get_players():
+            try:
+                test_module_name = '{}.tests'.format(
+                    player.subsession.app_name
+                )
+                test_module = import_module(test_module_name)
+                logger.info("Found test '{}'".format(test_module_name))
+            except ImportError as err:
+                self.fail(unicode(err))
+
+            player_bot = test_module.PlayerBot(
+                player=player,
+                participant_bot=self
+            )
+            self.player_bots.append(player_bot)
 
     def start(self):
-        """Recolect all the submits in self.submit"""
-        wait_page_url = WaitUntilAssignedToGroup.url(
-            self.player.participant,
-            self.player.participant._index_in_pages
+        self.response = self.get(
+            self.participant._start_url(),
+            follow=True
         )
-        self.response = self.get(wait_page_url, follow=True)
         self.set_path()
         self.check_200()
-        self.play_round()
-
-    @abc.abstractmethod
-    def play_round(self):
-        raise NotImplementedError()
+        for player_bot in self.player_bots:
+            player_bot.play_round()
 
     def stop(self):
         """Execute the validate_play after all runs are ended"""
-        self.validate_play()
-
-    @abc.abstractmethod
-    def validate_play(self):
-        raise NotImplementedError()
+        for player_bot in self.player_bots:
+            player_bot._validate_play()
 
     def check_200(self):
         # 2014-10-22: used to raise an exception here but i don't think that's
@@ -163,12 +176,11 @@ class BaseClient(test.Client):
         # Also, this exception doesn't have a useful traceback.
         if self.response.status_code != 200:
             msg = "Response status code: {} (expected 200)".format(
-                self.response.status_code
-            )
+                self.response.status_code)
             logger.warning(msg)
 
     def get(self, path, data={}, follow=False, **extra):
-        return super(BaseClient, self).get(path, data, follow, **extra)
+        return super(ParticipantBot, self).get(path, data, follow, **extra)
 
     def is_on(self, ViewClass):
         return re.match(ViewClass.url_pattern(), self.path.lstrip('/'))
@@ -176,21 +188,19 @@ class BaseClient(test.Client):
     def assert_is_on(self, ViewClass):
         if not self.is_on(ViewClass):
             msg = "Expected page: {}, Actual page: {}".format(
-                ViewClass.__name__, self.path
-            )
+                ViewClass.__name__, self.path)
             raise AssertionError(msg)
 
     def on_wait_page(self):
         return (
-            self.response.get(constants.wait_page_http_header) ==
-            constants.get_param_truth_value
-        )
+            self.response.get(constants_internal.wait_page_http_header) ==
+            constants_internal.get_param_truth_value)
 
     def page_redisplayed_with_errors(self):
+        header = constants_internal.redisplay_with_errors_http_header
+        truth_value = constants_internal.get_param_truth_value
         return (
-            self.response.get(constants.redisplay_with_errors_http_header) ==
-            constants.get_param_truth_value
-        )
+            self.response.get(header) == truth_value)
 
     def set_path(self):
         try:
@@ -201,8 +211,8 @@ class BaseClient(test.Client):
 
     def submit(self, ViewClass, param_dict=None):
         sbmt = Submit(
-            bot=self, ViewClass=ViewClass, input_is_valid=True, data=param_dict
-        )
+            bot=self, ViewClass=ViewClass,
+            input_is_valid=True, data=param_dict)
         self.submits.append(sbmt)
 
     def submit_invalid(self, ViewClass, param_dict=None):
@@ -212,8 +222,7 @@ class BaseClient(test.Client):
         '''
         sbmt = Submit(
             bot=self, ViewClass=ViewClass,
-            input_is_valid=False, data=param_dict
-        )
+            input_is_valid=False, data=param_dict)
         self.submits.append(sbmt)
 
 
@@ -221,99 +230,40 @@ class BaseClient(test.Client):
 # PLAYER BOT CLASS
 # =============================================================================
 
-class BasePlayerBot(BaseClient):
+class PlayerBot(object):
 
-    def __init__(self, user, **kwargs):
-        app_label = user.subsession.app_name
-        models_module = importlib.import_module('{}.models'.format(app_label))
+    def __init__(self, player, participant_bot, **kwargs):
 
-        self._PlayerClass = models_module.Player
-        self._GroupClass = models_module.Group
-        self._SubsessionClass = models_module.Subsession
-        self._UserClass = self._PlayerClass
+        self.participant_bot = participant_bot
+        self.participant = player.participant
+        self.player = player
+        self.group = player.group
+        self.subsession = player.subsession
 
-        if user.group is None:
+        if self.player.group is None:
             msg = "Player still not in group"
             raise AssertionError(msg)
 
-        self._player_id = user.id
-        self._group_id = user.group.id
-        self._subsession_id = user.subsession.id
+    @abc.abstractmethod
+    def play_round(self):
+        raise NotImplementedError()
 
-        super(BasePlayerBot, self).__init__(**kwargs)
+    def validate_play(self):
+        raise NotImplementedError()
 
-    def stop(self):
-        player = self.player
-        if player.payoff is None:
-            msg = (
-                "App {}: Player '{}': payoff is still None at the end of the "
-                "subsession. Check in tests.py if the bot completes the game."
-            ).format(
-                self.subsession._meta.app_label,
-                player.participant.code,
-            )
+    def _validate_play(self):
+        self._refresh_models()
+        self.validate_play()
 
-            # FIXME: why doesn't this work? the game works fine, and print
-            # statements show that a payoff is non-null
-            # ANSWER:
-            # this fails beacuse the test only simulate the play but the payoff
-            # is never set. I will try a workarround
-            # raise AssertionError(msg)
-        player_page_index = player._index_in_game_pages
-        pages_in_subsession = len(
-            get_views_module(self.subsession._meta.app_label).page_sequence
-        )
-        if player_page_index + 1 < pages_in_subsession:
-            msg = (
-                "App {}: Participant '{}' reached the page {} of {} at "
-                "the end of run. Check in tests.py if the bot completes "
-                "the game"
-            ).format(
-                self.subsession._meta.app_label,
-                player.participant.code,
-                player_page_index,
-                pages_in_subsession,
-            )
-            raise AssertionError(msg)
-        super(BasePlayerBot, self).stop()
+    def _refresh_models(self):
+        self.player = refresh_from_db(self.player)
+        # need to do self.player.group because the player might have been
+        # reassigned to a new group during the subsession
+        self.group = refresh_from_db(self.player.group)
+        self.subsession = refresh_from_db(self.subsession)
 
-    @property
-    def player(self):
-        # This needs to be a property because asserts
-        # require refreshing from the DB
-        return self._PlayerClass.objects.get(id=self._player_id)
+    def submit(self, ViewClass, param_dict=None):
+        self.participant_bot.submit(ViewClass, param_dict)
 
-    @property
-    def _user(self):
-        return self.player
-
-    @property
-    def group(self):
-        return self._GroupClass.objects.get(id=self._group_id)
-
-    @property
-    def subsession(self):
-        return self._SubsessionClass.objects.get(id=self._subsession_id)
-
-
-# =============================================================================
-# ESPERIMENT BOT CLASS
-# =============================================================================
-
-class BaseExperimenterBot(BaseClient):
-    '''ExperimenterBot is optional; currently not being used'''
-
-    def __init__(self, subsession, **kwargs):
-        self._SubsessionClass = type(subsession)
-        self._subsession_id = subsession.id
-        self._experimenter_id = subsession._experimenter.id
-
-        super(BaseExperimenterBot, self).__init__(**kwargs)
-
-    @property
-    def subsession(self):
-        return self._SubsessionClass.objects.get(id=self._subsession_id)
-
-    @property
-    def _user(self):
-        return Experimenter.objects.get(id=self._experimenter_id)
+    def submit_invalid(self, ViewClass, param_dict=None):
+        self.participant_bot.submit_invalid(ViewClass, param_dict)

@@ -1,11 +1,10 @@
-from django.test import TestCase
-
 import floppyforms
 
 import otree.forms
 import otree.widgets
 from otree.forms import ModelForm
 
+from .base import TestCase
 from .models import FormFieldModel
 
 
@@ -60,9 +59,6 @@ class UseFloppyformWidgetsTests(TestCase):
         )
         self.assertIsInstance(
             TestModelForm.base_fields['integer'], floppyforms.IntegerField
-        )
-        self.assertIsInstance(
-            TestModelForm.base_fields['ip_address'], floppyforms.IPAddressField
         )
         self.assertIsInstance(
             TestModelForm.base_fields['generic_ip_address'],

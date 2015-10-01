@@ -73,7 +73,7 @@ class MarkFieldAsRenderedNode(Node):
 
 
 class FormFieldNode(Node):
-    default_template = get_template('otree/forms/_formfield.html')
+    default_template = get_template('otree/tags/_formfield.html')
 
     def __init__(self, field_variable_name, with_arguments):
         self.field_variable_name = field_variable_name
@@ -117,10 +117,10 @@ class FormFieldNode(Node):
                     return form[field_name]
                 except KeyError:
                     raise ValueError(
-                        "Field '{field_name}' is not part of the form "
-                        "({form!r}).".format(
-                            field_name=field_name,
-                            form=form))
+                        "Field '{field_name}' was referenced in the template, "
+                        "but was not included in the Page's 'form_fields' "
+                        "in views.py ".format(
+                            field_name=field_name))
 
         # Second we try to resolve it to a bound field.
         # No field found, so we return None.
@@ -145,9 +145,17 @@ class FormFieldNode(Node):
             'bound_field': bound_field
         }
         if self.with_arguments:
-            extra_context.update(dict([
+            with_context = dict(
                 (name, var.resolve(context))
-                for name, var in self.with_arguments.items()]))
+                for name, var in self.with_arguments.items())
+            # If the with argument label="" was set explicitly, we set it to
+            # None. That is required to differentiate between 'use the default
+            # label since we didn't set any in the template' and 'do not print
+            # a label at all' as defined in
+            # https://github.com/oTree-org/otree-core/issues/325
+            if with_context.get('label', None) == '':
+                with_context['label'] = None
+            extra_context.update(with_context)
         return extra_context
 
     def render(self, context):
@@ -188,3 +196,13 @@ class FormFieldNode(Node):
                     tagname=tagname,
                     bits=bits))
         return cls(field, with_arguments)
+
+
+def defaultlabel(given_label, default):
+    # We check for an explicit None here in order to allow the label to be made
+    # empty.
+    if given_label is None:
+        return None
+    if not given_label:
+        return default
+    return given_label

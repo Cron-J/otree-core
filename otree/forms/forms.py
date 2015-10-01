@@ -6,29 +6,27 @@ from decimal import Decimal
 
 import floppyforms.__future__ as forms
 from floppyforms.__future__.models import (
-    FORMFIELD_OVERRIDES as FLOPPYFORMS_FORMFIELD_OVERRIDES
-)
+    FORMFIELD_OVERRIDES as FLOPPYFORMS_FORMFIELD_OVERRIDES)
 from floppyforms.__future__.models import (
-    ModelFormMetaclass as FloppyformsModelFormMetaclass
-)
+    ModelFormMetaclass as FloppyformsModelFormMetaclass)
 
 import django.forms as django_forms
 from django.forms import models as django_model_forms
 from django.utils.translation import ugettext as _
+from django.db.models.options import FieldDoesNotExist
 
 
 import easymoney
 
 import otree.common_internal
 import otree.models.session
-import otree.constants
+import otree.constants_internal
 from otree.forms import fields
 from otree.db import models
 
 
 __all__ = (
-    'formfield_callback', 'modelform_factory', 'BaseModelForm', 'ModelForm'
-)
+    'formfield_callback', 'modelform_factory', 'BaseModelForm', 'ModelForm')
 
 
 FORMFIELD_OVERRIDES = FLOPPYFORMS_FORMFIELD_OVERRIDES.copy()
@@ -72,9 +70,6 @@ FORMFIELD_OVERRIDES.update({
         'choices_form_class': forms.TypedChoiceField},
     models.IntegerField: {
         'form_class': forms.IntegerField,
-        'choices_form_class': forms.TypedChoiceField},
-    models.IPAddressField: {
-        'form_class': forms.IPAddressField,
         'choices_form_class': forms.TypedChoiceField},
     models.GenericIPAddressField: {
         'form_class': forms.GenericIPAddressField,
@@ -234,20 +229,25 @@ class BaseModelForm(forms.ModelForm):
         If the method is not found, it will return ``(None, None)``.
         """
 
+        # EditSessionProperties is a ModelForm with extra field which is not
+        # part of the model. In case your ModelForm has an extra field.
+        try:
+            model_field = self.instance._meta.get_field_by_name(field_name)[0]
+        except FieldDoesNotExist:
+            return [None, None]
+
         min_value, max_value = None, None
 
         min_method_name = '%s_min' % field_name
         if hasattr(self.view, min_method_name):
             min_value = getattr(self.view, min_method_name)()
         else:
-            model_field = self.instance._meta.get_field_by_name(field_name)[0]
             min_value = getattr(model_field, 'min', None)
 
         max_method_name = '%s_max' % field_name
         if hasattr(self.view, max_method_name):
             max_value = getattr(self.view, max_method_name)()
         else:
-            model_field = self.instance._meta.get_field_by_name(field_name)[0]
             max_value = getattr(model_field, 'max', None)
 
         return [min_value, max_value]
@@ -302,20 +302,17 @@ class BaseModelForm(forms.ModelForm):
                 if name in boolean_field_names and value is None:
                     mfield = self.instance._meta.get_field_by_name(name)[0]
                     if not mfield.allow_blank:
-                        msg = _('This field is required.')
+                        msg = otree.constants_internal.field_required_msg
                         raise forms.ValidationError(msg)
 
-                if hasattr(self.view, '%s_min' % name):
-                    lower = getattr(self.view, '%s_min' % name)()
-                    if value < lower:
-                        msg = 'Must be less or equal than {}.'
-                        raise forms.ValidationError(msg.format(lower))
+                lower, upper = self._get_field_boundaries(name)
+                if lower is not None and value < lower:
+                    msg = _('Value must be greater than or equal to {}.')
+                    raise forms.ValidationError(msg.format(lower))
 
-                if hasattr(self.view, '%s_max' % name):
-                    upper = getattr(self.view, '%s_max' % name)()
-                    if value > upper:
-                        msg = 'Must be greater or equal than {}.'
-                        raise forms.ValidationError(msg.format(upper))
+                if upper is not None and value > upper:
+                    msg = _('Value must be less than or equal to {}.')
+                    raise forms.ValidationError(msg.format(upper))
 
                 if hasattr(self.view, '%s_choices' % name):
                     choices = getattr(self.view, '%s_choices' % name)()
@@ -323,9 +320,12 @@ class BaseModelForm(forms.ModelForm):
                         otree.common_internal.contract_choice_tuples(choices)
                     )
                     if value not in choices_values:
-                        msg = 'Value must be one of: {}'.format(
+                        # Translators: for multiple-choice fields,
+                        # show the valid choices.
+                        # e.g. "Value must be one of: A, B, C"
+                        msg = _('Value must be one of: {}'.format(
                             ", ".join(map(str, choices))
-                        )
+                        ))
                         raise forms.ValidationError(msg)
 
                 if hasattr(self.view, '%s_error_message' % name):
@@ -341,8 +341,7 @@ class BaseModelForm(forms.ModelForm):
 
             except forms.ValidationError as e:
                 self.add_error(name, e)
-
-        if hasattr(self.view, 'error_message'):
+        if not self.errors and hasattr(self.view, 'error_message'):
             error_string = self.view.error_message(self.cleaned_data)
             if error_string:
                 e = forms.ValidationError(error_string)

@@ -1,19 +1,15 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import random
-
+from otree_save_the_change.mixins import SaveTheChange
 from otree.db import models
-from otree.common_internal import get_views_module
 from otree.common_internal import (
-    get_models_module, get_players, get_groups,
-    flatten
-)
+    get_models_module, get_players, get_groups, flatten)
 from otree.models_concrete import GroupSize
 from otree import match_players
 
 
-class BaseSubsession(models.Model):
+class BaseSubsession(SaveTheChange, models.Model):
     """Base class for all Subsessions.
 
     """
@@ -22,11 +18,6 @@ class BaseSubsession(models.Model):
         abstract = True
 
     code = models.RandomCharField(length=8)
-
-    _experimenter = models.OneToOneField(
-        'otree.Experimenter', null=True,
-        related_name='%(app_label)s_subsession'
-    )
 
     # FIXME: this should start at 1, to be consistent with id_in_group
     _index_in_subsessions = models.PositiveIntegerField(
@@ -55,9 +46,8 @@ class BaseSubsession(models.Model):
 
     _groups = []
     _players = []
-    _player = None
 
-    def in_previous_round(self):
+    def _in_previous_round(self):
         return type(self).objects.filter(
             session=self.session,
             round_number=self.round_number - 1
@@ -147,9 +137,10 @@ class BaseSubsession(models.Model):
                 p.group = None
                 p.save()
         self.group_set.all().delete()
-        for row in matrix:
+        for i, row in enumerate(matrix, start=1):
             group = self._create_group()
             group.set_players(row)
+            group.id_in_subsession = i
 
         if check_integrity:
             self.check_group_integrity()
@@ -162,7 +153,7 @@ class BaseSubsession(models.Model):
         return get_models_module(self._meta.app_config.name).Constants
 
     def _GroupClass(self):
-        return models.get_model(self._meta.app_label, 'Group')
+        return models.get_model(self._meta.app_config.label, 'Group')
 
     def _create_group(self):
         '''should not be public API, because could leave the players in an
@@ -179,16 +170,11 @@ class BaseSubsession(models.Model):
         group.save()
         return group
 
-    def _random_group_matrix(self):
+    def _first_round_group_matrix(self):
         players = list(self.player_set.all())
-
-        random.shuffle(players)
 
         groups = []
         first_player_index = 0
-
-        # if players_per_group is an integer, then outer_loops == num_groups
-        # this is to enable apps with variable group sizes
 
         for group_size in self._get_players_per_group_list():
             groups.append(
@@ -200,7 +186,7 @@ class BaseSubsession(models.Model):
     def _set_players_per_group_list(self):
         for index, group_size in enumerate(self._get_players_per_group_list()):
             GroupSize(
-                app_label=self._meta.app_label,
+                app_label=self._meta.app_config.name,
                 subsession_pk=self.pk,
                 group_index=index,
                 group_size=group_size,
@@ -219,9 +205,9 @@ class BaseSubsession(models.Model):
 
     def _create_groups(self):
         if self.round_number == 1:
-            group_matrix = self._random_group_matrix()
+            group_matrix = self._first_round_group_matrix()
         else:
-            previous_round = self.in_previous_round()
+            previous_round = self._in_previous_round()
             group_matrix = [
                 group._get_players(refresh_from_db=True)
                 for group in get_groups(previous_round, refresh_from_db=True)
@@ -268,21 +254,7 @@ class BaseSubsession(models.Model):
         for g in self.get_groups():
             g.save()
 
-    def _experimenter_pages(self):
-        views_module = get_views_module(self._meta.app_label)
-        if hasattr(views_module, 'experimenter_pages'):
-            return views_module.experimenter_pages() or []
-        return []
-
-    def _experimenter_pages_as_urls(self):
-        """Converts the sequence to URLs.
-
-        e.g.:
-        """
-        return [
-            View.url(self._experimenter.session_experimenter, index)
-            for index, View in enumerate(self._experimenter_pages())
-        ]
+        # subsession.save() gets called in the parent method
 
     def match_players(self, match_name):
         if self.round_number > 1:

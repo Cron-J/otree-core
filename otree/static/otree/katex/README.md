@@ -1,4 +1,4 @@
-# [<img src="https://khan.github.io/KaTeX/katex-logo.svg" width="130" alt="KaTeX">](http://khan.github.io/KaTeX/) [![Build Status](https://travis-ci.org/Khan/KaTeX.svg?branch=master)](https://travis-ci.org/Khan/KaTeX)
+# [<img src="https://khan.github.io/KaTeX/katex-logo.svg" width="130" alt="KaTeX">](https://khan.github.io/KaTeX/) [![Build Status](https://travis-ci.org/Khan/KaTeX.svg?branch=master)](https://travis-ci.org/Khan/KaTeX)
 
 KaTeX is a fast, easy-to-use JavaScript library for TeX math rendering on the web.
 
@@ -7,16 +7,18 @@ KaTeX is a fast, easy-to-use JavaScript library for TeX math rendering on the we
  * **Self contained:** KaTeX has no dependencies and can easily be bundled with your website resources.
  * **Server side rendering:** KaTeX produces the same output regardless of browser or environment, so you can pre-render expressions using Node.js and send them as plain HTML.
 
-KaTeX supports all major browsers, including Chrome, Safari, Firefox, Opera, and IE 8 - IE 11.
+KaTeX supports all major browsers, including Chrome, Safari, Firefox, Opera, and IE 8 - IE 11.  A list of supported  commands can be on the [wiki](https://github.com/Khan/KaTeX/wiki/Function-Support-in-KaTeX).
 
 ## Usage
 
-Download the built files from [the releases page](https://github.com/khan/katex/releases). Include the `katex.min.js` and `katex.min.css` files on your page:
+You can [download KaTeX](https://github.com/khan/katex/releases) and host it on your server or include the `katex.min.js` and `katex.min.css` files on your page directly from a CDN:
 
 ```html
-<link rel="stylesheet" type="text/css" href="/path/to/katex.min.css">
-<script src="/path/to/katex.min.js" type="text/javascript"></script>
+<link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/KaTeX/0.3.0/katex.min.css">
+<script src="//cdnjs.cloudflare.com/ajax/libs/KaTeX/0.3.0/katex.min.js"></script>
 ```
+
+#### In-browser rendering
 
 Call `katex.render` with a TeX expression and a DOM element to render into:
 
@@ -24,14 +26,34 @@ Call `katex.render` with a TeX expression and a DOM element to render into:
 katex.render("c = \\pm\\sqrt{a^2 + b^2}", element);
 ```
 
-To generate HTML on the server, you can use `katex.renderToString`:
+If KaTeX can't parse the expression, it throws a `katex.ParseError` error.
+
+#### Server side rendering or rendering to a string
+
+To generate HTML on the server or to generate an HTML string of the rendered math, you can use `katex.renderToString`:
 
 ```js
 var html = katex.renderToString("c = \\pm\\sqrt{a^2 + b^2}");
 // '<span class="katex">...</span>'
 ```
 
-Make sure to include the CSS and font files, but there is no need to include the JavaScript.
+Make sure to include the CSS and font files, but there is no need to include the JavaScript. Like `render`, `renderToString` throws if it can't parse the expression.
+
+#### Rendering options
+
+You can provide an object of options as the last argument to `katex.render` and `katex.renderToString`. Available options are:
+
+- `displayMode`: `boolean`. If `true` the math will be rendered in display mode, which will put the math in display style (so `\int` and `\sum` are large, for example), and will center the math on the page on its own line. If `false` the math will be rendered in inline mode. (default: `false`)
+
+For example:
+
+```js
+katex.render("c = \\pm\\sqrt{a^2 + b^2}", element, { displayMode: true });
+```
+
+#### Automatic rendering of math on a page
+
+Math on the page can be automatically rendered using the auto-render extension. See [the Auto-render README](contrib/auto-render/README.md) for more information.
 
 ## Contributing
 
@@ -39,4 +61,4 @@ See [CONTRIBUTING.md](CONTRIBUTING.md)
 
 ## License
 
-KaTeX is licenced under the [MIT License](http://opensource.org/licenses/MIT).
+KaTeX is licensed under the [MIT License](http://opensource.org/licenses/MIT).

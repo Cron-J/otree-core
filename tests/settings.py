@@ -5,8 +5,6 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 PRJ_DIR = os.path.dirname(BASE_DIR)
 
-TEST_VERBOSITY = 2
-
 DEBUG = True
 
 ADMIN_PASSWORD = 'otree'
@@ -42,12 +40,8 @@ INSTALLED_APPS = [
     'tests.demo',
 ]
 
-INSTALLED_OTREE_APPS = [
-    'tests.simple_game',
-    'tests.simple_game_copy',
-]
 
-SESSION_TYPE_DEFAULTS = {
+SESSION_CONFIG_DEFAULTS = {
     'real_world_currency_per_point': 0.01,
     'participation_fee': 10.00,
     'num_bots': 12,
@@ -56,67 +50,43 @@ SESSION_TYPE_DEFAULTS = {
 }
 
 
-SESSION_TYPES = [
+SESSION_CONFIGS = [
     {
         'name': 'simple_game',
         'display_name': "Simple Game",
         'num_demo_participants': 1,
         'app_sequence': ['tests.simple_game'],
-        'doc': ""
+    },
+    {
+        'name': 'single_player_game',
+        'display_name': "Single Player Game",
+        'num_demo_participants': 1,
+        'num_bots': 1,
+        'participation_fee': 9.99,
+        'real_world_currency_per_point': 0.02,
+        'app_sequence': ['tests.single_player_game'],
+        'treatment': 'blue'
+    },
+    {
+        'name': 'multi_player_game',
+        'display_name': "Multi Player Game",
+        'num_demo_participants': 3,
+        'num_bots': 6,
+        'app_sequence': ['tests.multi_player_game'],
     },
     {
         "name": 'two_simple_games',
         "display_name": "2 Simple Games",
         "num_demo_participants": 1,
-        "app_sequence": ['tests.simple_game', 'tests.simple_game_copy'],
-        "doc": ""
+        "app_sequence": ['tests.simple_game', 'tests.single_player_game'],
     },
 ]
 
 
-DEMO_PAGE_INTRO_TEXT = """
-<ul>
-    <li>
-        <a href="https://github.com/oTree-org/otree" target="_blank">
-            Source code
-        </a>
-        for the below games.
-    </li>
-    <li>
-        <a href="http://www.otree.org/" target="_blank">oTree homepage</a>.
-    </li>
-</ul>
-<p>
-    Below are various games implemented with oTree. These games are all open
-    source, and you can modify them as you wish to create your own variations.
-    Click one to learn more and play.
-</p>
-"""
+DEMO_PAGE_INTRO_TEXT = """"""
 
-
-MIDDLEWARE_CLASSES = ()
-
-ROOT_URLCONF = 'otree.default_urls'
 
 ACCESS_CODE_FOR_DEFAULT_SESSION = 'idd1610'
-
-PEP8 = {
-    "check": (
-        os.path.join(PRJ_DIR, "otree"),
-        os.path.join(PRJ_DIR, "tests"),
-        os.path.join(PRJ_DIR, "runtests.py"),
-        os.path.join(PRJ_DIR, "setup.py"),
-        os.path.join(PRJ_DIR, "manage.py"),
-    ),
-    "exclude": (
-        os.path.join(PRJ_DIR, "otree", "app_template"),
-        os.path.join(PRJ_DIR, "otree", "locale"),
-        os.path.join(PRJ_DIR, "otree", "migrations"),
-        os.path.join(PRJ_DIR, "otree", "session", "migrations"),
-        os.path.join(PRJ_DIR, "tests", "simple_game"),
-        os.path.join(PRJ_DIR, "tests", "simple_game_copy"),
-    )
-}
 
 
 MTURK_WORKER_REQUIREMENTS = []

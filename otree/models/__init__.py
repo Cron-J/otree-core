@@ -25,9 +25,12 @@ session = import_module('otree.models.session')
 
 class BaseSubsession(subsessions.BaseSubsession):
 
+    class Meta:
+        abstract = True
+        ordering = ['pk']
+
     session = models.ForeignKey(
-        Session, related_name='%(app_label)s_%(class)s', null=True
-    )
+        Session, related_name='%(app_label)s_%(class)s', null=True)
 
     round_number = models.PositiveIntegerField(
         doc='''If this subsession is repeated (i.e. has multiple rounds), this
@@ -56,7 +59,7 @@ class BaseSubsession(subsessions.BaseSubsession):
 
     @property
     def app_name(self):
-        return self._meta.app_label
+        return self._meta.app_config.name
 
     def in_previous_rounds(self):
         return super(BaseSubsession, self).in_previous_rounds()
@@ -67,12 +70,9 @@ class BaseSubsession(subsessions.BaseSubsession):
     def before_session_starts(self):
         return super(BaseSubsession, self).before_session_starts()
 
-    class Meta:
-        abstract = True
-        ordering = ['pk']
-
 
 class BaseGroup(groups.BaseGroup):
+
     class Meta:
         abstract = True
         ordering = ['pk']
@@ -93,8 +93,18 @@ class BaseGroup(groups.BaseGroup):
     def get_player_by_id(self, id_in_group):
         return super(BaseGroup, self).get_player_by_id(id_in_group)
 
+    def in_previous_rounds(self):
+        return super(BaseGroup, self).in_previous_rounds()
+
+    def in_all_rounds(self):
+        return super(BaseGroup, self).in_all_rounds()
+
 
 class BasePlayer(players.BasePlayer):
+
+    class Meta:
+        abstract = True
+        ordering = ['pk']
 
     id_in_group = models.PositiveIntegerField(
         null=True,
@@ -125,7 +135,3 @@ class BasePlayer(players.BasePlayer):
 
     def role(self):
         return super(BasePlayer, self).role()
-
-    class Meta:
-        abstract = True
-        ordering = ['pk']

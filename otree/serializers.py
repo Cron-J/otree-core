@@ -12,7 +12,7 @@ class ParticipantSerializer(serializers.ModelSerializer):
             '_id_in_session_display',
             'code',
             'label',
-            '_pages_completed',
+            '_current_page',
             '_current_app_name',
             '_round_number',
             '_current_page_name',
@@ -26,3 +26,7 @@ class SessionTypeSerializer(serializers.Serializer):
     name = serializers.CharField(max_length=255)
     display_name = serializers.CharField(max_length=255)
     num_demo_participants = serializers.IntegerField()
+class SessionSerializer(serializers.ModelSerializer):
+  class Meta(object):
+        model = Session
+        lookup_field = 'code'

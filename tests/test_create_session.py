@@ -1,35 +1,28 @@
-
 import uuid
 
-from django.test import TestCase
 from django.core.management import call_command
 
 from otree.models import Session
-from tests.utils import capture_stdout
 
+from .base import TestCase
 from tests.simple_game import models as sg_models
-from tests.simple_game_copy import models as sgc_models
+from tests.single_player_game import models as sgc_models
 
 
 class TestCreateSessionsCommand(TestCase):
 
     def test_create_two_sessions_output(self):
         num_sessions = 2
-        with capture_stdout() as output_stream:
-            for i in range(num_sessions):
-                call_command('create_session', 'simple_game', 1)
-        output = output_stream.read()
-        lines = output.strip().splitlines()
-        created_sessions = lines.count('Creating session...')
+        for i in range(num_sessions):
+            call_command('create_session', 'simple_game', "1")
+        created_sessions = Session.objects.count()
         self.assertEqual(created_sessions, num_sessions)
 
     def test_create_one_session(self):
-        with capture_stdout():
-            call_command('create_session', 'simple_game', 1)
-
+        call_command('create_session', 'simple_game', "1")
         self.assertEqual(Session.objects.count(), 1)
         session = Session.objects.get()
-        self.assertEqual(session.session_type['name'], 'simple_game')
+        self.assertEqual(session.config['name'], 'simple_game')
 
         self.assertEqual(sg_models.Subsession.objects.count(), 1)
         subsession = sg_models.Subsession.objects.get()
@@ -44,12 +37,11 @@ class TestCreateSessionsCommand(TestCase):
         key = unicode(uuid.uuid4())
         value = unicode(uuid.uuid4())
 
-        with capture_stdout():
-            call_command('create_session', 'two_simple_games', 1)
+        call_command('create_session', 'two_simple_games', "1")
 
         self.assertEqual(Session.objects.count(), 1)
         session = Session.objects.get()
-        self.assertEqual(session.session_type['name'], 'two_simple_games')
+        self.assertEqual(session.config['name'], 'two_simple_games')
 
         self.assertEqual(sg_models.Subsession.objects.count(), 1)
         self.assertEqual(sgc_models.Subsession.objects.count(), 1)

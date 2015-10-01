@@ -3,11 +3,11 @@
 
 from django.template import Context
 from django.template import Template
-from django.test import TestCase
 
 import otree.db.models
 import otree.forms
 
+from .base import TestCase
 from .models import SimplePlayer
 
 
@@ -40,8 +40,8 @@ class CheckAllFieldsAreRenderedTests(FormFieldTestMixin, TestCase):
                 fields = ('name',)
 
         form = OnlyNameForm(instance=self.simple_player)
-        with self.assertTemplateNotUsed(
-                template_name='otree/forms/_formfield_is_missing_error.html'):
+        templatename = 'otree/includes/_formfield_is_missing_error.html'
+        with self.assertTemplateNotUsed(template_name=templatename):
             result = self.render(
                 '''
                 {% pageform form using %}
@@ -55,7 +55,7 @@ class CheckAllFieldsAreRenderedTests(FormFieldTestMixin, TestCase):
 
         form = SimplePlayerForm(instance=self.simple_player)
         with self.assertTemplateNotUsed(
-                'otree/forms/_formfield_is_missing_error.html'):
+                'otree/includes/_formfield_is_missing_error.html'):
             result = self.render(
                 '''
                 {% pageform form using %}
@@ -66,14 +66,18 @@ class CheckAllFieldsAreRenderedTests(FormFieldTestMixin, TestCase):
                 context={'form': form, 'player': self.simple_player})
 
     def test_rendering_complains_when_not_all_fields_are_rendered(self):
-        form = SimplePlayerForm(instance=self.simple_player)
+        form = SimplePlayerForm(
+            # The missing field error only shows up if there are errors on the
+            # form. So we construct one.
+            data={'age': 'no number'},
+            instance=self.simple_player)
         with self.assertTemplateUsed(
-                'otree/forms/_formfield_is_missing_error.html'):
+                'otree/includes/_formfield_is_missing_error.html'):
             tpl = (
                 '{% pageform form using %}'
                 '{% formfield player.name %}'
                 '{% endpageform %}'
-                '{% include "otree/debug_info.html" %}'
+                '{% include "otree/includes/debug_info.html" %}'
             )
             self.render(
                 tpl, context={'form': form, 'player': self.simple_player}

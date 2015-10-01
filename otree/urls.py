@@ -2,16 +2,17 @@
 # -*- coding: utf-8 -*-
 
 import inspect
+from importlib import import_module
 
 from django.conf import urls
-from django.utils.importlib import import_module
 
 from django.contrib.staticfiles.urls import staticfiles_urlpatterns
 from django.views.generic.base import RedirectView
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
-from otree.views.rest import (SessionParticipantsList, SessionTypesList, SessionsView, SessionResultsView)
-#, SessionList)
+
+from otree.views.rest import (SessionParticipantsList,  Ping, SessionTypesList, SessionsView, SessionResultsView)
+
 
 from otree.common_internal import get_models_module
 
@@ -52,15 +53,12 @@ def url_patterns_from_module(module_name):
         unrestricted_views_demo = unrestricted_views_experiment
     else:
         unrestricted_views_experiment = [
-            'otree.views.concrete.AssignVisitorToOpenSession',
-            'otree.views.concrete.AssignVisitorToOpenSessionMTurk',
+            'otree.views.concrete.AssignVisitorToDefaultSession',
             'otree.views.concrete.InitializeParticipant',
             'otree.views.concrete.MTurkLandingPage',
             'otree.views.concrete.MTurkStart',
             'otree.views.concrete.JoinSessionAnonymously',
             'otree.views.concrete.OutOfRangeNotification',
-            ('otree.views.concrete' +
-                '.SessionExperimenterWaitUntilPlayersAreAssigned'),
             'otree.views.concrete.WaitUntilAssignedToGroup',
         ]
         unrestricted_views_demo = unrestricted_views_experiment + [
@@ -106,7 +104,7 @@ def augment_urlpatterns(urlpatterns):
 
     urlpatterns += urls.patterns(
         '',
-        urls.url(r'^$', RedirectView.as_view(url='/demo'), name='demo'),
+        urls.url(r'^$', RedirectView.as_view(url='/demo', permanent=True)),
         urls.url(
             r'^accounts/login/$',
             'django.contrib.auth.views.login',
@@ -122,6 +120,7 @@ def augment_urlpatterns(urlpatterns):
     )
 
     rest_api_urlpatterns = (
+        urls.url(r'^ping/$', Ping.as_view(), name="ping"),
         urls.url(
             r'^sessions/(?P<session_code>[a-z]+)/participants/$',
             SessionParticipantsList.as_view(),

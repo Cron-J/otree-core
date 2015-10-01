@@ -9,18 +9,7 @@ from .models import Constants
 
 
 class MyPage(Page):
-
-    form_model = models.Player
-    form_fields = ['my_field']
-
-    def is_displayed(self):
-        return True
-
-    def vars_for_template(self):
-        return {
-            'my_variable_here': 1,
-        }
-
+    pass
 
 class ResultsWaitPage(WaitPage):
 
@@ -29,12 +18,11 @@ class ResultsWaitPage(WaitPage):
 
 
 class Results(Page):
-
     pass
 
 
-page_sequence =[
-        MyPage,
-        ResultsWaitPage,
-        Results
-    ]
+page_sequence = [
+    MyPage,
+    ResultsWaitPage,
+    Results
+]

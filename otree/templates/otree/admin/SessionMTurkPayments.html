@@ -1,5 +1,5 @@
 {% extends "otree/admin/Session.html" %}
-{% block head_content %}
+{% block internal_scripts %}
 {{ block.super }}
 <script type="text/javascript" charset="utf-8">
 /*
@@ -67,7 +67,7 @@ $(function() {
     <table class="table table-condensed">
         <tr>
             <th>Session type</th>
-            <td>{{ session.session_type.name }}</td>
+            <td>{{ session.config.name }}</td>
         </tr>
 
         <tr>
@@ -135,7 +135,7 @@ $(function() {
             <td>
                 <div class="checkbox-inline">
                     <label>
-                        {% if not p.mturk_bonus_paid %}
+                        {% if not p.mturk_bonus_paid and p.payoff_in_real_world_currency.to_number > 0 %}
                         <input name="bonus" data-value="{{ p.payoff_in_real_world_currency.to_number }}" type="checkbox" value="{{ p.mturk_assignment_id }}">
                         {% else %}
                         <input name="bonus" data-value="{{ p.payoff_in_real_world_currency.to_number }}" type="checkbox" value="{{ p.mturk_assignment_id }}" disabled>
@@ -155,5 +155,5 @@ $(function() {
 {% if participants %}
 <button style="float: right;" type="submit" class="btn btn-primary" id="pay-hit" formmethod="POST" formaction="{% url 'pay_mturk' session.pk %}" disabled>Pay via MTurk</button>
 {% endif %}
-{% include "otree/messages.html" %}
+{% include "otree/includes/messages.html" %}
 {% endblock %}

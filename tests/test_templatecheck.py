@@ -1,13 +1,17 @@
 import os
 from django.core.management import call_command, CommandError
 from django.template import Template
-from django.test import TestCase
 
-from otree.checks.templates import get_unreachable_content
+from otree.checks.templates import get_unreachable_content, check_next_button
+from otree.checks.templates import has_valid_encoding
+from .base import TestCase
 from .utils import capture_stdout, dummyapp
 
 
-class TemplateCheckTest(TestCase):
+TEST_DIR = os.path.dirname(os.path.abspath(__file__))
+
+
+class TemplateCheckContentTest(TestCase):
     def test_non_extending_template(self):
         template = Template('''Stuff in here.''')
         content = get_unreachable_content(template)
@@ -118,6 +122,31 @@ class TemplateCheckTest(TestCase):
         self.assertEqual(len(content), 0)
 
 
+class TemplateCheckNextButtonTest(TestCase):
+
+    def test_outside_block(self):
+        template = Template(
+            '''
+            {% extends "base.html" %}
+            {% load otree_tags %}
+            {% block content %}Click the next button...{% endblock %}
+            {% next_button %}
+            ''')
+        self.assertTrue(check_next_button(template))
+
+    def test_inside_block(self):
+        template = Template(
+            '''
+            {% extends "base.html" %}
+            {% load otree_tags %}
+            {% block content %}
+            Click the next button...
+            {% next_button %}
+            {% endblock %}
+            ''')
+        self.assertTrue(check_next_button(template))
+
+
 class TemplateCheckInSystemCheckTest(TestCase):
     def test_check_fails(self):
         with dummyapp('templatecheckapp') as app_path:
@@ -162,3 +191,15 @@ class TemplateCheckInSystemCheckTest(TestCase):
 
             # Check that dead bits are displayed.
             self.assertTrue('This file has dead text' in message)
+
+
+class TemplateCheckEncodingTest(TestCase):
+    def test_bad_encoding(self):
+        file_name = os.path.join(TEST_DIR, 'test_files',
+                                 'bad_encoding_template.html')
+        self.assertFalse(has_valid_encoding(file_name))
+
+    def test_good_encoding(self):
+        file_name = os.path.join(TEST_DIR, 'test_files',
+                                 'good_encoding_template.html')
+        self.assertTrue(has_valid_encoding(file_name))

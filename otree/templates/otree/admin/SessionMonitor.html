@@ -1,11 +1,11 @@
 {% extends "otree/admin/Session.html" %}
-{% block head_content %}
+{% block internal_scripts %}
 {{ block.super }}
 <script>
 $(document).ready(
     function() {
         ajax_json_participants();
-        setInterval(ajax_json_participants , 2000);
+        setInterval(ajax_json_participants , 4000);
         ajax_advance();
     }
 );
