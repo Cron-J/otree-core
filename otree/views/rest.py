@@ -46,6 +46,7 @@ class SessionTypesList(generics.ListCreateAPIView):
 
 class SessionsView(APIView):
     def get(self, request, format=None):
+        print('Hi')
         data = self.request.GET
         sessions = getSerializableObject(Session.objects.all(), True) if 'session_code' not in data else getSerializableObject(Session.objects.get(code=data['session_code']))
         return Response(sessions, status=status.HTTP_200_OK)

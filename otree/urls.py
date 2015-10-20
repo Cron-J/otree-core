@@ -9,7 +9,7 @@ from django.conf import urls
 from django.contrib.staticfiles.urls import staticfiles_urlpatterns
 from django.views.generic.base import RedirectView
 from django.conf import settings
-from django.contrib.auth.decorators import login_required
+# from django.contrib.auth.decorators import login_required
 
 from otree.views.rest import (SessionParticipantsList,  Ping, SessionTypesList, SessionsView, SessionResultsView)
 
@@ -68,8 +68,8 @@ def url_patterns_from_module(module_name):
             'otree.views.demo.SessionFullscreen',
             'otree.views.admin.SessionDescription',
             'otree.views.admin.SessionMonitor',
-            'otree.views.admin.SessionPayments',
-            'otree.views.admin.SessionResults',
+            # 'otree.views.admin.SessionPayments',
+            # 'otree.views.admin.SessionResults',
             'otree.views.admin.SessionStartLinks',
         ]
 
@@ -87,7 +87,9 @@ def url_patterns_from_module(module_name):
         if '%s.%s' % (module_name, ViewCls.__name__) in unrestricted_views:
             as_view = ViewCls.as_view()
         else:
-            as_view = login_required(ViewCls.as_view())
+            # as_view = login_required(ViewCls.as_view())
+            as_view = ViewCls.as_view()
+
 
         if hasattr(ViewCls, 'url_name'):
             view_urls.append(

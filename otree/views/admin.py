@@ -47,6 +47,7 @@ from django.core.serializers.python import Serializer as PythonSerializer
 from django.core.serializers.json import Serializer as JsonSerializer
 from django.utils import six
 
+from django.apps import AppConfig, apps
 class ExtBaseSerializer(BaseSerializer):
     """ Abstract serializer class; everything is the same as Django's base except from the marked lines """
     def serialize(self, queryset, **options):
@@ -702,13 +703,30 @@ class SessionPayments(AdminSessionPageMixin, vanilla.TemplateView):
             return ['otree/admin/SessionPayments.html']
 
     def get(self, *args, **kwargs):
-        context = self.get_context_data()
-        if self.request.META.get('CONTENT_TYPE') == 'application/json':
-            return JsonResponse(self.context_json, safe=False)
-        else:
-            response = super(SessionPayments, self).get(*args, **kwargs)
-            return response
-            
+        # context = self.get_context_data()
+        # if self.request.META.get('CONTENT_TYPE') == 'application/json':
+        #     return JsonResponse(self.context_json, safe=False)
+        # else:
+        #     response = super(SessionPayments, self).get(*args, **kwargs)
+        #     return response
+        try:
+            req=self.request.META.get('HTTP_AUTHORIZATION')  
+            if req:
+                print(req)
+                User = apps.get_model('auth.User')
+                if User.objects.filter(username=req).exists(): 
+                    context = self.get_context_data()
+                    if self.request.META.get('CONTENT_TYPE') == 'application/json':
+                        return JsonResponse(self.context_json, safe=False)
+                    else:
+                        response = super(SessionPayments, self).get(*args, **kwargs)
+                        return response
+                else:
+                    return JsonResponse({'detail':'access denied'}, safe=False)
+            else:
+                return JsonResponse({'detail':'access denied'}, safe=False)
+        except Exception as e:
+            return JsonResponse({'detail': 'access denied'}, safe=False)
     def get_context_data(self, **kwargs):
 
         session = self.session
@@ -865,11 +883,28 @@ class SessionResults(AdminSessionPageMixin, vanilla.TemplateView):
         return context
 
     def get(self, request, *args, **kwargs):
-        context = self.get_context_data()
-        if self.request.META.get('CONTENT_TYPE') == 'application/json':
-            return JsonResponse(self.context_json, safe=False)
-        else:
-            return self.render_to_response(context)
+        # context = self.get_context_data()
+        # if self.request.META.get('CONTENT_TYPE') == 'application/json':
+        #     return JsonResponse(self.context_json, safe=False)
+        # else:
+        #     return self.render_to_response(context)
+        context = self.get_context_data()    
+        try:
+            req=self.request.META.get('HTTP_AUTHORIZATION')  
+            if req:
+                print(req)
+                User = apps.get_model('auth.User')
+                if User.objects.filter(username=req).exists(): 
+                    if self.request.META.get('CONTENT_TYPE') == 'application/json':
+                        return JsonResponse(self.context_json, safe=False)
+                    else:
+                        return self.render_to_response(context)
+                else:
+                    return JsonResponse({'detail':'access denied'}, safe=False)
+            else:
+                return JsonResponse({'detail':'access denied'}, safe=False)
+        except Exception as e:
+            return JsonResponse({'detail': 'access denied'}, safe=False)
 
 
 class SessionDescription(AdminSessionPageMixin, vanilla.TemplateView):
