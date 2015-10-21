@@ -60,6 +60,8 @@ def url_patterns_from_module(module_name):
             'otree.views.concrete.JoinSessionAnonymously',
             'otree.views.concrete.OutOfRangeNotification',
             'otree.views.concrete.WaitUntilAssignedToGroup',
+            'otree.views.admin.SessionPayments',
+            'otree.views.admin.SessionResults',
         ]
         unrestricted_views_demo = unrestricted_views_experiment + [
             'otree.views.concrete.AdvanceSession',
@@ -67,9 +69,7 @@ def url_patterns_from_module(module_name):
             'otree.views.demo.DemoIndex',
             'otree.views.demo.SessionFullscreen',
             'otree.views.admin.SessionDescription',
-            'otree.views.admin.SessionMonitor',
-            # 'otree.views.admin.SessionPayments',
-            # 'otree.views.admin.SessionResults',
+            'otree.views.admin.SessionMonitor',            
             'otree.views.admin.SessionStartLinks',
         ]
 
@@ -86,9 +86,9 @@ def url_patterns_from_module(module_name):
     for ViewCls in all_views:
         if '%s.%s' % (module_name, ViewCls.__name__) in unrestricted_views:
             as_view = ViewCls.as_view()
-        else:
-            # as_view = login_required(ViewCls.as_view())
-            as_view = ViewCls.as_view()
+        else:           
+            as_view = login_required(ViewCls.as_view())
+            # as_view = ViewCls.as_view()
 
 
         if hasattr(ViewCls, 'url_name'):
