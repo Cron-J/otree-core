@@ -9,7 +9,7 @@ from django.conf import urls
 from django.contrib.staticfiles.urls import staticfiles_urlpatterns
 from django.views.generic.base import RedirectView
 from django.conf import settings
-# from django.contrib.auth.decorators import login_required
+from django.contrib.auth.decorators import login_required
 
 from otree.views.rest import (SessionParticipantsList,  Ping, SessionTypesList, SessionsView, SessionResultsView)
 
