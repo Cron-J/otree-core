@@ -46,15 +46,13 @@ class SessionTypesList(generics.ListCreateAPIView):
 
 class SessionsView(APIView):
     def get(self, request, format=None):
-        print('Hi')
         data = self.request.GET
         sessions = getSerializableObject(Session.objects.all(), True) if 'session_code' not in data else getSerializableObject(Session.objects.get(code=data['session_code']))
         return Response(sessions, status=status.HTTP_200_OK)
 
     def post(self, request, format=None):
         try:           
-            data = self.request.data       
-            print(data['session_type_name'])      
+            data = self.request.data           
             session = create_session(session_config_name=data['session_type_name'], label=data['label'] or '',num_participants=data['num_participants'])
             return Response(session.code, status=status.HTTP_200_OK)
             # return Response(getSerializableObject(session, False), status=status.HTTP_200_OK)#Get entire session object
@@ -67,3 +65,18 @@ class SessionResultsView(APIView):
         session = Session.objects.get(code=data['session_code'])
         # results = get_session_results(session)
         return Response(session, status=status.HTTP_200_OK)
+#written for updating GXP JSON INFO
+class UpdateSessions(APIView):  
+    model = Session  
+    def post(self, request, format=None):        
+        try:           
+            data = self.request.GET   
+            ssndata=Session.objects.get(code=data['session_code'])
+            ssndata.gxpinfo=data['gxpinfo']
+            ssndata.save()            
+            op=getSerializableObject(Session.objects.get(code=data['session_code']))
+            print(op)
+            return Response(op, status=status.HTTP_200_OK)
+            # return Response(getSerializableObject(session, False), status=status.HTTP_200_OK)#Get entire session object
+        except Exception as e:
+            return Response(e.message, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
