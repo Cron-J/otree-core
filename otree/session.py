@@ -92,9 +92,23 @@ def augment_session_config(session_config):
     # 2015-05-14: why do we strip? the doc can have line breaks in the middle
     # anyways
     new_session_config['doc'] = new_session_config['doc'].strip()
-
     # TODO: fixed_pay is deprecated as of 2015-05-07,
     # in favor of participation_fee. make this required at some point.
+      
+    try:
+        app_name=session_config['name']
+        app_constants = get_app_constants(app_name)
+        players_per_group=app_constants.players_per_group
+        if players_per_group== None:
+            players_per_group= 1
+        new_session_config['num_demo_participants']= players_per_group
+        
+    except Exception as e:
+        new_session_config['num_demo_participants']= 1
+    
+
+
+
     if (('participation_fee' not in new_session_config) and
             ('fixed_pay' in new_session_config)):
         deprecate.dwarning(
