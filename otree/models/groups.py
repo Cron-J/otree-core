@@ -51,6 +51,63 @@ class BaseGroup(SaveTheChange, models.Model):
             player.save()
         # so that get_players doesn't return stale cache
         self._players = players_list
+    #assigning position to player in group
+    def set_players_by_position(self, players_list,minp,maxp):
+        for index, player in enumerate(players_list, start=1):
+            player.group = self
+            # for single player check and set position id
+            if(minp==maxp):
+                l=1
+                for p in self.get_players():
+                    if int(p.id_in_group) == int(minp):
+                        l=l+1  
+                if l==1:
+                    player.id_in_group =int(minp)
+                    player.save()
+            else:
+                for i in range(int(minp),int(maxp)+1):
+                    l=1
+                    for p in self.get_players():
+                        if p.id_in_group == i:
+                            l=l+1   
+                    if l== 1:        
+                        player.id_in_group =i
+                        player.save()
+                        break         
+        self._players = players_list
+    #check position in group is available
+    def check_availabilty(self, players_list,minp,maxp):
+        #group is empty
+        if len(players_list)==0:
+            return 1
+
+        for index, player in enumerate(players_list, start=1):
+            player.group = self
+            # for single player check and set position id
+            if(minp==maxp):
+                l=1
+                for p in self.get_players():
+                    if p.id_in_group == int(minp):
+                        l=l+1  
+                if l==1:
+                    return 1
+                else:
+                    return 0
+            #for session type or range type players
+            else:
+                for i in range(int(minp),int(maxp)+1):
+                    l=1
+                    for p in self.get_players():
+                        if p.id_in_group == i:
+                            l=l+1   
+                            print(i)
+                    if l== 1:     
+                        print(l,"l====")   
+                        return 1
+                        break    
+        # position in group is not available
+        return 0    
+        self._players = players_list
 
     def in_previous_rounds(self):
 

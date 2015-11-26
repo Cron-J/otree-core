@@ -20,7 +20,7 @@ from django.http import (
 from django.utils.translation import ugettext as _
 
 import vanilla
-
+import json
 from boto.mturk.connection import MTurkRequestError
 
 import otree.constants_internal as constants
@@ -38,7 +38,6 @@ from otree.views.abstract import (
 from otree.models_concrete import GroupSize
 from otree.models.session import GlobalSingleton
 
-
 class OutOfRangeNotification(NonSequenceUrlMixin, OTreeMixin, vanilla.View):
     name_in_url = 'shared'
 
@@ -54,18 +53,22 @@ class WaitUntilAssignedToGroup(FormPageOrWaitPageMixin,
     In "group by arrival time",
     we wait until enough players have arrived to form a group,
     then they all start at the same time.
-
     It would be bad if some players started before others
-
     The exception is if players_per_group = None.
     Then the players should be preassigned, and start right away.
-
     If we're not grouping by arrival time
-
     """
     name_in_url = 'shared'
-
     def _is_ready(self):
+        participant_code= self.participant_code
+        session= json.loads(json.dumps(self.session.gxp_info))
+        minp=0
+        maxp=0 
+        for index in session:  
+            if index.get('participantId') == participant_code:                
+                minp=index.get('minp')
+                maxp=index.get('maxp')
+                print(bool(self.group),self.group,"group")
         if bool(self.group):
             return not self.group._is_missing_players
         # if grouping by arrival time,
@@ -73,27 +76,38 @@ class WaitUntilAssignedToGroup(FormPageOrWaitPageMixin,
         # we assign them.
         elif self.session.config.get('group_by_arrival_time'):
             with lock_on_this_code_path():
-                # need to check again to prevent race conditions
+                # need to check again to prevent race conditions  
                 if bool(self.group):
                     return not self.group._is_missing_players
-                if self.subsession.round_number == 1:
+                if self.subsession.round_number == 1: 
                     open_group = self.subsession._get_open_group()
                     group_players = open_group.get_players()
-                    group_players.append(self.player)
-                    open_group.set_players(group_players)
-                    group_size_obj = GroupSize.objects.filter(
-                        app_label=self.subsession._meta.app_config.name,
-                        subsession_pk=self.subsession.pk,
-                    ).order_by('group_index')[0]
-                    group_quota = group_size_obj.group_size
-                    if len(group_players) == group_quota:
-                        open_group._is_missing_players = False
-                        group_size_obj.delete()
-                        open_group.save()
-                        return True
+                    print(group_players,"players")
+                    print(open_group,"open_group")
+                    #for single selection
+                    
+                    loop1=open_group.check_availabilty(group_players,minp,maxp)  
+                    print(loop1)   
+                    if loop1==1:                                                          
+                        group_players.append(self.player)
+                        ####need set and check position for participant 
+                        open_group.set_players_by_position(group_players,minp,maxp)                
+                        group_size_obj = GroupSize.objects.filter(
+                            app_label=self.subsession._meta.app_config.name,
+                            subsession_pk=self.subsession.pk,
+                        ).order_by('group_index')[0]
+                        group_quota = group_size_obj.group_size                        
+                        if len(group_players) == group_quota:
+                            open_group._is_missing_players = False
+                            group_size_obj.delete()
+                            open_group.save()                                    
+                            return True
+                        else:
+                            open_group.save()
+                            return False
                     else:
-                        open_group.save()
                         return False
+                            
                 else:
                     # 2015-06-11: just running
                     # self.subsession._create_groups() doesn't work
@@ -110,9 +124,11 @@ class WaitUntilAssignedToGroup(FormPageOrWaitPageMixin,
                         self.player._in_previous_round().group.get_players()
                     ]
                     open_group = self.subsession._get_open_group()
-                    open_group.set_players(group_players)
-                    open_group._is_missing_players = False
-                    open_group.save()
+                    loop1=open_group.check_availabilty(group_players,minp,maxp)
+                    if loop1==1:
+                        open_group.set_players_by_position(group_players,minp,maxp)
+                        open_group._is_missing_players = False
+                        open_group.save()
                     return True
         # if not grouping by arrival time, but the session was just created
         # and the code to assign to groups has not executed yet
@@ -138,10 +154,8 @@ class InitializeParticipant(vanilla.UpdateView):
     """just collects data and sets properties. not essential to functionality.
     the only exception is if the participant needs to be assigned to groups on
     the fly, which is done here.
-
     2014-11-16: also, this sets _last_page_timestamp. what if that is not set?
     will it still work?
-
     """
 
     @classmethod
@@ -151,7 +165,9 @@ class InitializeParticipant(vanilla.UpdateView):
         )
 
     def get(self, *args, **kwargs):
-
+        # data = self.request.GET   
+        # minp=data['minp']
+        # maxp=data['maxp']
         session_user = get_object_or_404(
             otree.models.session.Participant,
             code=kwargs[constants.session_user_code]
@@ -171,6 +187,7 @@ class InitializeParticipant(vanilla.UpdateView):
         session_user._last_page_timestamp = time.time()
         session_user.save()
         first_url = session_user._url_i_should_be_on()
+        # return HttpResponseRedirect(first_url+'?minp='+minp+'&maxp='+maxp)
         return HttpResponseRedirect(first_url)
 
 

@@ -78,6 +78,11 @@ class Session(ModelWithVars):
         null=True,
         doc="The time at which the experimenter started the session")
 
+    # added to maintin player group assignment
+    gxp_info = models.JSONField(
+        default=dict, null=True,
+        doc=("the gxp info for assiging groups"))
+
     mturk_HITId = models.CharField(
         max_length=300, null=True, blank=True,
         help_text='Hit id for this session on MTurk')

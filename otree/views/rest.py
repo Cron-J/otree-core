@@ -12,6 +12,8 @@ from otree.serializers import (ParticipantSerializer, SessionTypeSerializer, Ses
 from otree.session import (create_session, get_session_configs_list)
 from django.core import serializers 
 import json
+import urllib
+import urlparse
 
 def getSerializableObject(obj, isList = False):
     data = serializers.serialize('json', (obj if isList else [obj,]))
@@ -61,7 +63,7 @@ class SessionsView(APIView):
 
 class SessionResultsView(APIView):
     def get(self, request, format=None):
-        data = self.request.GET
+        data = self.request.GET        
         session = Session.objects.get(code=data['session_code'])
         # results = get_session_results(session)
         return Response(session, status=status.HTTP_200_OK)
@@ -71,10 +73,12 @@ class UpdateSessions(APIView):
     def post(self, request, format=None):        
         try:           
             data = self.request.GET   
-            ssndata=Session.objects.get(code=data['session_code'])
-            ssndata.gxpinfo=data['gxpinfo']
+            gxpinfo=json.loads(data['gxp_info'])
+            print(gxpinfo)
+            ssndata=Session.objects.get(code=gxpinfo[0]['session_code'])
+            ssndata.gxp_info=data['gxp_info']
             ssndata.save()            
-            op=getSerializableObject(Session.objects.get(code=data['session_code']))
+            op=getSerializableObject(Session.objects.get(code=gxpinfo[0]['session_code']))
             print(op)
             return Response(op, status=status.HTTP_200_OK)
             # return Response(getSerializableObject(session, False), status=status.HTTP_200_OK)#Get entire session object

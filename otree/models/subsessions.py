@@ -193,6 +193,7 @@ class BaseSubsession(SaveTheChange, models.Model):
             ).save()
 
     def _create_empty_groups(self):
+        print("group created here1")
         num_groups = len(self._get_players_per_group_list())
         self._set_groups(
             [[] for i in range(num_groups)],
@@ -204,6 +205,7 @@ class BaseSubsession(SaveTheChange, models.Model):
             group.save()
 
     def _create_groups(self):
+        print("group created here2")
         if self.round_number == 1:
             group_matrix = self._first_round_group_matrix()
         else:

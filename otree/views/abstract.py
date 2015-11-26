@@ -158,9 +158,10 @@ class FormPageOrWaitPageMixin(OTreeMixin):
 
     def objects_to_save(self):
         objs = [self._user, self._session_user, self.session]
-        if self.group:
-            objs.append(self.group)
-            objs.extend(list(self.group._players))
+        #commented out to set the conditions before creating players
+        # if self.group:
+        #     objs.append(self.group)
+        #     objs.extend(list(self.group._players))
         objs.extend(list(self.subsession._players))
         objs.extend(list(self.subsession._groups))
 
@@ -180,7 +181,6 @@ class FormPageOrWaitPageMixin(OTreeMixin):
         user_lookup = SessionuserToUserLookup.objects.get(
             session_user_pk=self._session_user.pk,
             page_index=self._session_user._index_in_pages)
-
         app_name = user_lookup.app_name
         user_pk = user_lookup.user_pk
 
@@ -194,7 +194,6 @@ class FormPageOrWaitPageMixin(OTreeMixin):
         self.PlayerClass = getattr(models_module, 'Player')
 
         self._user = self.PlayerClass.objects.get(pk=user_pk)
-
         self.player = self._user
         self.group = self.player.group
 
@@ -209,6 +208,7 @@ class FormPageOrWaitPageMixin(OTreeMixin):
             with otree.common_internal.transaction_atomic():
 
                 participant_code = kwargs.pop(constants.session_user_code)
+                self.participant_code=participant_code
 
                 self._index_in_pages = int(
                     kwargs.pop(constants.index_in_pages))
@@ -387,7 +387,7 @@ class GenericWaitPageMixin(object):
     def body_text(self):
         return ''
 
-    def request_is_from_wait_page(self):
+    def request_is_from_wait_page(self):        
         check_if_wait_is_over = constants.check_if_wait_is_over
         get_param_tvalue = constants.get_param_truth_value
         return (
@@ -395,14 +395,16 @@ class GenericWaitPageMixin(object):
             self.request.GET.get(check_if_wait_is_over) == get_param_tvalue)
 
     def poll_url(self):
-        '''called from template'''
+        '''called from template'''        
         return otree.common_internal.add_params_to_url(
             self.request.path,
             {constants.check_if_wait_is_over: constants.get_param_truth_value})
 
     def redirect_url(self):
-        '''called from template'''
-        return self.request.path
+        '''called from template'''        
+        return otree.common_internal.add_params_to_url(
+            self.request.path,
+            {constants.check_if_wait_is_over: constants.get_param_truth_value})
 
     # called from template
     poll_interval_seconds = constants.wait_page_poll_interval_seconds
