@@ -60,7 +60,7 @@ class BaseGroup(SaveTheChange, models.Model):
                 l=1
                 for p in self.get_players():
                     if int(p.id_in_group) == int(minp):
-                        l=l+1  
+                        l=l+1                  
                 if l==1:
                     player.id_in_group =int(minp)
                     player.save()
@@ -73,7 +73,7 @@ class BaseGroup(SaveTheChange, models.Model):
                     if l== 1:        
                         player.id_in_group =i
                         player.save()
-                        break         
+                        break                 
         self._players = players_list
     #check position in group is available
     def check_availabilty(self, players_list,minp,maxp):
@@ -96,18 +96,16 @@ class BaseGroup(SaveTheChange, models.Model):
             #for session type or range type players
             else:
                 for i in range(int(minp),int(maxp)+1):
-                    l=1
+                    l=1                    
                     for p in self.get_players():
                         if p.id_in_group == i:
-                            l=l+1   
-                            print(i)
+                            l=l+1                       
                     if l== 1:     
-                        print(l,"l====")   
                         return 1
                         break    
         # position in group is not available
         return 0    
-        self._players = players_list
+        # self._players = players_list
 
     def in_previous_rounds(self):
 
