@@ -11,7 +11,7 @@ from django.views.generic.base import RedirectView
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
 
-from otree.views.rest import (SessionParticipantsList,  Ping, SessionTypesList, SessionsView, SessionResultsView)
+from otree.views.rest import (SessionParticipantsList,  Ping, SessionTypesList, SessionsView, SessionResultsView, UpdateSessions)
 
 
 from otree.common_internal import get_models_module
@@ -142,6 +142,11 @@ def augment_urlpatterns(urlpatterns):
             r'^sessionresults/$',
             SessionResultsView.as_view(),
             name="sessionsresults_view",
+        ),
+        urls.url(
+            r'^sessiongxpinfo/$',
+            UpdateSessions.as_view(),
+            name="sessiongxpinfo_view",
         )
        
     )
