@@ -160,7 +160,7 @@ def augment_settings(settings):
         'CORS_ORIGIN_ALLOW_ALL': True,
         'CORS_URLS_REGEX': '^.*$',
         'CORS_ALLOW_METHODS': ('GET','POST'),
-        'CORS_ORIGIN_WHITELIST':('https://test.globalexperiments.org','http://go.gxp.world','http://test.globalexperiments.org','https://go.gxp.world')
+        'CORS_ORIGIN_REGEX_WHITELIST': ('^.*$')
     })
 
     settings.setdefault('LANGUAGE_CODE', global_settings.LANGUAGE_CODE)
