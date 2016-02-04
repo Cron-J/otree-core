@@ -158,8 +158,9 @@ def augment_settings(settings):
     # CORS CONFS
     augmented_settings.update({
         'CORS_ORIGIN_ALLOW_ALL': True,
-        'CORS_URLS_REGEX': r'^ping/$',
-        'CORS_ALLOW_METHODS': ('GET',)
+        'CORS_URLS_REGEX': '^.*$',
+        'CORS_ALLOW_METHODS': ('GET','POST'),
+        'CORS_ORIGIN_WHITELIST':('https://test.globalexperiments.org','https://go.gxp.world')
     })
 
     settings.setdefault('LANGUAGE_CODE', global_settings.LANGUAGE_CODE)
