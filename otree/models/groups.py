@@ -52,18 +52,21 @@ class BaseGroup(SaveTheChange, models.Model):
         # so that get_players doesn't return stale cache
         self._players = players_list
     #assigning position to player in group
-    def set_players_by_position(self, players_list,minp,maxp):
+    def set_players_by_position(self, players_list,minp,maxp,selfPlayer):
         for index, player in enumerate(players_list, start=1):
             player.group = self
             # for single player check and set position id
             if(minp==maxp):
-                l=1
-                for p in self.get_players():
-                    if int(p.id_in_group) == int(minp):
-                        l=l+1                  
-                if l==1:
+                l=1      
+                db_players= self._players        
+                for p, pp in  enumerate(db_players, start=1):  
+                    if pp != selfPlayer and pp.id_in_group is not None and int(pp.id_in_group) == int(minp):      
+                        l=l+1     
+                if l==1 and selfPlayer==player:
                     player.id_in_group =int(minp)
-                    player.save()
+                    player.save()       
+                    break                    
+                    
             else:
                 for i in range(int(minp),int(maxp)+1):
                     l=1
@@ -73,8 +76,9 @@ class BaseGroup(SaveTheChange, models.Model):
                     if l== 1:        
                         player.id_in_group =i
                         player.save()
-                        break                 
+                        break     
         self._players = players_list
+       
     #check position in group is available
     def check_availabilty(self, players_list,minp,maxp):
         #group is empty

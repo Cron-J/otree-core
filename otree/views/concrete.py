@@ -82,13 +82,11 @@ class WaitUntilAssignedToGroup(FormPageOrWaitPageMixin,
                     open_group = self.subsession._get_open_group()
                     group_players = open_group.get_players()
                     #for single selection
-                    
                     loop1=open_group.check_availabilty(group_players,minp,maxp) 
                     if loop1==1:                                                          
                         group_players.append(self.player)
                         ####need set and check position for participant 
-                        open_group.set_players_by_position(group_players,minp,maxp)   
-                        print(group_players)             
+                        open_group.set_players_by_position(group_players,minp,maxp,self.player)
                         group_size_obj = GroupSize.objects.filter(
                             app_label=self.subsession._meta.app_config.name,
                             subsession_pk=self.subsession.pk,
