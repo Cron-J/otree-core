@@ -223,7 +223,6 @@ def augment_settings(settings):
 
         'SESSION_SAVE_EVERY_REQUEST': True,
         'TEMPLATE_DEBUG': settings['DEBUG'],
-        # 'STATIC_ROOT': 'staticfiles',
         'STATIC_ROOT': os.path.join(settings['BASE_DIR'], '_static_root'),
         'STATIC_URL': '/static/',
         'STATICFILES_STORAGE': (
