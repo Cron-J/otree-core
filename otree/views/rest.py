@@ -71,16 +71,20 @@ class SessionResultsView(APIView):
 class UpdateSessions(APIView):  
     model = Session  
     def post(self, request, format=None):        
-        try:           
-            data = self.request.GET   
-            gxpinfo=json.loads(data['gxp_info'])
-            print(gxpinfo)
-            ssndata=Session.objects.get(code=gxpinfo[0]['session_code'])
-            ssndata.gxp_info=data['gxp_info']
-            ssndata.save()            
-            op=getSerializableObject(Session.objects.get(code=gxpinfo[0]['session_code']))
-            print(op)
-            return Response(op, status=status.HTTP_200_OK)
+        # try:           
+        data = self.request.GET   
+        gxpinfo=json.loads(data['gxp_info'])
+        ssndata=Session.objects.get(code=gxpinfo[0]['session_code'])
+        # print ssndata.gxp_info,"===========data"
+        # ssndata.gxp_info=ssndata.gxp_info.append(gxpinfo)
+        if ssndata.gxp_info is not None and len(ssndata.gxp_info)>0:
+            for d in gxpinfo:
+                ssndata.gxp_info.append(d)
+        else:
+            ssndata.gxp_info= data['gxp_info']  
+        ssndata.save()            
+        op=getSerializableObject(Session.objects.get(code=gxpinfo[0]['session_code']))
+        return Response(op, status=status.HTTP_200_OK)
             # return Response(getSerializableObject(session, False), status=status.HTTP_200_OK)#Get entire session object
-        except Exception as e:
-            return Response(e.message, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        # except Exception as e:
+        #     return Response(e.message, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
