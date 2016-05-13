@@ -269,7 +269,9 @@ def augment_settings(settings):
         'USE_L10N': True,
 
         'WSGI_APPLICATION': 'otree.wsgi.application',
+        'SECURE_SSL_REDIRECT': True,
         'SECURE_PROXY_SSL_HEADER': ('HTTP_X_FORWARDED_PROTO', 'https'),
+        'SESSION_COOKIE_SECURE':True,        
         'MTURK_HOST': 'mechanicalturk.amazonaws.com',
         'MTURK_SANDBOX_HOST': 'mechanicalturk.sandbox.amazonaws.com',
         'CREATE_DEFAULT_SUPERUSER': True,
