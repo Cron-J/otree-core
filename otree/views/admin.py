@@ -710,21 +710,21 @@ class SessionPayments(AdminSessionPageMixin, vanilla.TemplateView):
         #     response = super(SessionPayments, self).get(*args, **kwargs)
         #     return response
         try:
-            req=self.request.META.get('HTTP_AUTHORIZATION')  
-            if req:
-                print(req)
-                User = apps.get_model('auth.User')
-                if User.objects.filter(username=req).exists(): 
-                    context = self.get_context_data()
-                    if self.request.META.get('CONTENT_TYPE') == 'application/json':
-                        return JsonResponse(self.context_json, safe=False)
-                    else:
-                        response = super(SessionPayments, self).get(*args, **kwargs)
-                        return response
-                else:
-                    return JsonResponse({'detail':'access denied'}, safe=False)
+            # req=self.request.META.get('HTTP_AUTHORIZATION')  
+            # if req:
+            #     print(req)
+            #     User = apps.get_model('auth.User')
+            #     if User.objects.filter(username=req).exists(): 
+            context = self.get_context_data()
+            if self.request.META.get('CONTENT_TYPE') == 'application/json':
+                return JsonResponse(self.context_json, safe=False)
             else:
-                return JsonResponse({'detail':'access denied'}, safe=False)
+                response = super(SessionPayments, self).get(*args, **kwargs)
+                return response
+            #     else:
+            #         return JsonResponse({'detail':'access denied'}, safe=False)
+            # else:
+            #     return JsonResponse({'detail':'access denied'}, safe=False)
         except Exception as e:
             return JsonResponse({'detail': 'access denied'}, safe=False)
     def get_context_data(self, **kwargs):
@@ -890,19 +890,19 @@ class SessionResults(AdminSessionPageMixin, vanilla.TemplateView):
         #     return self.render_to_response(context)
         context = self.get_context_data()    
         try:
-            req=self.request.META.get('HTTP_AUTHORIZATION')  
-            if req:
-                print(req)
-                User = apps.get_model('auth.User')
-                if User.objects.filter(username=req).exists(): 
-                    if self.request.META.get('CONTENT_TYPE') == 'application/json':
-                        return JsonResponse(self.context_json, safe=False)
-                    else:
-                        return self.render_to_response(context)
-                else:
-                    return JsonResponse({'detail':'access denied'}, safe=False)
+            # req=self.request.META.get('HTTP_AUTHORIZATION')  
+            # if req:
+                # print(req)
+                # User = apps.get_model('auth.User')
+                # if User.objects.filter(username=req).exists(): 
+            if self.request.META.get('CONTENT_TYPE') == 'application/json':
+                return JsonResponse(self.context_json, safe=False)
             else:
-                return JsonResponse({'detail':'access denied'}, safe=False)
+                return self.render_to_response(context)
+            #     else:
+            #         return JsonResponse({'detail':'access denied'}, safe=False)
+            # else:
+            #     return JsonResponse({'detail':'access denied'}, safe=False)
         except Exception as e:
             return JsonResponse({'detail': 'access denied'}, safe=False)
 
