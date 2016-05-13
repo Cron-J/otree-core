@@ -187,7 +187,7 @@ class SessionCreateHit(AdminSessionPageMixin, vanilla.FormView):
                         msg = msg.format('grant_qualification_id')
                         messages.error(request, msg)
                         return HttpResponseRedirect(
-                            reverse('session_create_hit', args=(session.pk,)))
+                            'https://otree.globalexperiments.org'+reverse('session_create_hit', args=(session.pk,)))
                 else:
                     session.mturk_qualification_type_id = qualification_id
 
@@ -249,7 +249,7 @@ class SessionCreateHit(AdminSessionPageMixin, vanilla.FormView):
             session.mturk_sandbox = in_sandbox
             session.save()
 
-        return HttpResponseRedirect(
+        return HttpResponseRedirect('https://otree.globalexperiments.org'+
             reverse('session_create_hit', args=(session.pk,)))
 
 
@@ -298,5 +298,5 @@ class PayMTurk(vanilla.View):
                 p.mturk_bonus_paid = True
                 p.save()
         messages.success(request, "Your payment was successful")
-        return HttpResponseRedirect(
+        return HttpResponseRedirect('https://otree.globalexperiments.org'+
             reverse('session_payments', args=(session.pk,)))

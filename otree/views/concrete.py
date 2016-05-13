@@ -183,7 +183,7 @@ class InitializeParticipant(vanilla.UpdateView):
         session_user.save()
         first_url = session_user._url_i_should_be_on()
         # return HttpResponseRedirect(first_url+'?minp='+minp+'&maxp='+maxp)
-        return HttpResponseRedirect(first_url)
+        return HttpResponseRedirect('https://otree.globalexperiments.org'+first_url)
 
 
 class MTurkLandingPage(vanilla.TemplateView):
@@ -220,7 +220,7 @@ class MTurkLandingPage(vanilla.TemplateView):
             url_start = otree.common_internal.add_params_to_url(url_start, {
                 'assignmentId': self.request.GET['assignmentId'],
                 'workerId': self.request.GET['workerId']})
-            return HttpResponseRedirect(url_start)
+            return HttpResponseRedirect('https://otree.globalexperiments.org'+url_start)
         else:
             context = super(MTurkLandingPage, self).get_context_data(**kwargs)
             return self.render_to_response(context)
@@ -288,7 +288,7 @@ class MTurkStart(vanilla.View):
             participant.mturk_worker_id = worker_id
             participant.mturk_assignment_id = assignment_id
             participant.save()
-        return HttpResponseRedirect(participant._start_url())
+        return HttpResponseRedirect('https://otree.globalexperiments.org'+participant._start_url())
 
 
 class JoinSessionAnonymously(vanilla.View):
@@ -325,7 +325,7 @@ class JoinSessionAnonymously(vanilla.View):
                 self.request.GET.get('participant_label') or participant.label
             )
             participant.save()
-        return HttpResponseRedirect(participant._start_url())
+        return HttpResponseRedirect('https://otree.globalexperiments.org'+participant._start_url())
 
 
 class AssignVisitorToDefaultSession(AssignVisitorToDefaultSessionBase):
@@ -378,7 +378,7 @@ class AdvanceSession(vanilla.View):
     def get(self, request, *args, **kwargs):
         self.session.advance_last_place_participants()
         redirect_url = reverse('session_monitor', args=(self.session.pk,))
-        return HttpResponseRedirect(redirect_url)
+        return HttpResponseRedirect('https://otree.globalexperiments.org'+redirect_url)
 
 
 class SetDefaultSession(vanilla.View):
@@ -423,7 +423,7 @@ class SetDefaultSession(vanilla.View):
             reverse('persistent_lab_urls'),
         )
         messages.success(request, msg, extra_tags='safe')
-        return HttpResponseRedirect(reverse('admin_home'))
+        return HttpResponseRedirect('https://otree.globalexperiments.org'+reverse('admin_home'))
 
 
 class UnsetDefaultSession(vanilla.View):
@@ -457,7 +457,7 @@ class UnsetDefaultSession(vanilla.View):
         messages.success(
             request, "You have successfully reset the default session"
         )
-        return HttpResponseRedirect(reverse('admin_home'))
+        return HttpResponseRedirect('https://otree.globalexperiments.org'+reverse('admin_home'))
 
 
 class ToggleArchivedSessions(vanilla.View):
@@ -480,7 +480,7 @@ class ToggleArchivedSessions(vanilla.View):
             else:
                 session.archived = True
             session.save()
-        return HttpResponseRedirect(request.POST['origin_url'])
+        return HttpResponseRedirect('https://otree.globalexperiments.org'+request.POST['origin_url'])
 
 
 class DeleteSessions(vanilla.View):
