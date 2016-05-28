@@ -111,7 +111,7 @@ class OTreeMixin(object):
 
         # shouldn't return HttpResponseRedirect to an AJAX request
         assert not self.request.is_ajax()
-        return HttpResponseRedirect('https://otree.globalexperiments.org'+self._session_user._url_i_should_be_on())
+        return HttpResponseRedirect(self._session_user._url_i_should_be_on())
 
 
 class NonSequenceUrlMixin(object):
@@ -159,9 +159,9 @@ class FormPageOrWaitPageMixin(OTreeMixin):
     def objects_to_save(self):
         objs = [self._user, self._session_user, self.session]
         #commented out to set the conditions before creating players
-        # if self.group:
-        #     objs.append(self.group)
-        #     objs.extend(list(self.group._players))
+        if self.group:
+            objs.append(self.group)
+            objs.extend(list(self.group._players))
         objs.extend(list(self.subsession._players))
         objs.extend(list(self.subsession._groups))
 
@@ -840,7 +840,7 @@ class AssignVisitorToDefaultSessionBase(vanilla.View):
             participant.visited = True
             participant.save()
 
-        return HttpResponseRedirect('https://otree.globalexperiments.org'+participant._start_url())
+        return HttpResponseRedirect(participant._start_url())
 
 
 class GetFloppyFormClassMixin(object):

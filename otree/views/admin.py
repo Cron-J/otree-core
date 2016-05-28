@@ -481,7 +481,7 @@ class WaitUntilSessionCreated(GenericWaitPageMixin, vanilla.View):
             session_home_url = reverse(
                 'session_start_links', args=(session.pk,)
             )
-        return HttpResponseRedirect('https://otree.globalexperiments.org'+session_home_url)
+        return HttpResponseRedirect(session_home_url)
 
     def dispatch(self, request, *args, **kwargs):
         self._pre_create_id = kwargs['session_pre_create_id']
@@ -561,7 +561,7 @@ class CreateSession(vanilla.FormView):
         wait_until_session_created_url = reverse(
             'wait_until_session_created', args=(pre_create_id,)
         )
-        return HttpResponseRedirect('https://otree.globalexperiments.org'+wait_until_session_created_url)
+        return HttpResponseRedirect(wait_until_session_created_url)
 
 
 class SessionConfigsToCreate(vanilla.View):
@@ -687,7 +687,7 @@ class EditSessionProperties(AdminSessionPageMixin, vanilla.UpdateView):
         self.session.config = config
         self.session.save()
         messages.success(self.request, 'Properties have been updated')
-        return HttpResponseRedirect('https://otree.globalexperiments.org'+self.get_success_url())
+        return HttpResponseRedirect(self.get_success_url())
 
 
 class SessionPayments(AdminSessionPageMixin, vanilla.TemplateView):

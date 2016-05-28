@@ -160,7 +160,7 @@ class CreateDemoSession(GenericWaitPageMixin, vanilla.View):
             landing_url = reverse('session_fullscreen', args=(session.pk,))
         else:
             landing_url = reverse('session_start_links', args=(session.pk,))
-        return HttpResponseRedirect('https://otree.globalexperiments.org'+landing_url)
+        return HttpResponseRedirect(landing_url)
 
     def dispatch(self, request, *args, **kwargs):
         self.session_config_name = kwargs['session_config']
