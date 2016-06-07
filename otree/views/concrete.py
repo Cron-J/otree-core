@@ -82,26 +82,27 @@ class WaitUntilAssignedToGroup(FormPageOrWaitPageMixin,
                     open_group = self.subsession._get_open_group()
                     group_players = open_group.get_players()
                     #for single selection
-                    loop1=open_group.check_availabilty(group_players,minp,maxp) 
-                    if loop1==1:                                                          
-                        group_players.append(self.player)
-                        ####need set and check position for participant 
-                        open_group.set_players_by_position(group_players,minp,maxp,self.player)
-                        group_size_obj = GroupSize.objects.filter(
-                            app_label=self.subsession._meta.app_config.name,
-                            subsession_pk=self.subsession.pk,
-                        ).order_by('group_index')[0]
-                        group_quota = group_size_obj.group_size                        
-                        if len(group_players) == group_quota:
-                            open_group._is_missing_players = False
-                            group_size_obj.delete()
-                            open_group.save()                                    
-                            return True
-                        else:
-                            open_group.save()
-                            return False
+                    # loop1=open_group.check_availabilty(group_players,minp,maxp) 
+                    # if loop1==1:                                                          
+                    group_players.append(self.player)
+                    ####need set and check position for participant 
+                    open_group.set_players(group_players)
+                    # open_group.set_players_by_position(group_players,minp,maxp,self.player)
+                    group_size_obj = GroupSize.objects.filter(
+                        app_label=self.subsession._meta.app_config.name,
+                        subsession_pk=self.subsession.pk,
+                    ).order_by('group_index')[0]
+                    group_quota = group_size_obj.group_size                        
+                    if len(group_players) == group_quota:
+                        open_group._is_missing_players = False
+                        group_size_obj.delete()
+                        open_group.save()                                    
+                        return True
                     else:
+                        open_group.save()
                         return False
+                    # else:
+                    #     return False
                             
                 else:
                     # 2015-06-11: just running
@@ -119,11 +120,12 @@ class WaitUntilAssignedToGroup(FormPageOrWaitPageMixin,
                         self.player._in_previous_round().group.get_players()
                     ]
                     open_group = self.subsession._get_open_group()
-                    loop1=open_group.check_availabilty(group_players,minp,maxp)
-                    if loop1==1:
-                        open_group.set_players_by_position(group_players,minp,maxp,self.player)
-                        open_group._is_missing_players = False
-                        open_group.save()
+                    # loop1=open_group.check_availabilty(group_players,minp,maxp)
+                    # if loop1==1:
+                        # open_group.set_players_by_position(group_players,minp,maxp,self.player)
+                    open_group.set_players(group_players)
+                    open_group._is_missing_players = False
+                    open_group.save()
                     return True
         # if not grouping by arrival time, but the session was just created
         # and the code to assign to groups has not executed yet
