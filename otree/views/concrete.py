@@ -101,9 +101,10 @@ class WaitUntilAssignedToGroup(FormPageOrWaitPageMixin,
                         else:
                             open_group.save()
                             return False
+
                     else:
-                        return False
-                            
+                        open_group.save()
+                        return False                         
                 else:
                     # 2015-06-11: just running
                     # self.subsession._create_groups() doesn't work
@@ -122,7 +123,7 @@ class WaitUntilAssignedToGroup(FormPageOrWaitPageMixin,
                     open_group = self.subsession._get_open_group()
                     # loop1=open_group.check_availabilty(group_players,minp,maxp)
                     # if loop1==1:
-                    # open_group.set_players_by_position(group_players,minp,maxp,self.player)
+                        # open_group.set_players_by_position(group_players,minp,maxp,self.player)
                     open_group.set_players(group_players)
                     open_group._is_missing_players = False
                     open_group.save()
