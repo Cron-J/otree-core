@@ -103,8 +103,8 @@ class WaitUntilAssignedToGroup(FormPageOrWaitPageMixin,
                             return False
 
                     else:
-                        open_group.save()
-                        return False                         
+                        return False
+                            
                 else:
                     # 2015-06-11: just running
                     # self.subsession._create_groups() doesn't work
